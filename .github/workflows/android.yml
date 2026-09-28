@@ -1,26 +1,6 @@
 name: Android CI
 
 on:
-  push:
-    branches: [ "beta" ]
-    paths-ignore:
-      - ".github/**"
-      - "!.github/workflows/**"
-      - ".idea/"
-      - "fastlane/"
-      - '.gitignore'
-      - "*.md"
-      - "LICENSE"
-  pull_request:
-    branches: [ "beta" ]
-    paths-ignore:
-      - ".github/**"
-      - "!.github/workflows/**"
-      - ".idea/"
-      - "fastlane/"
-      - '.gitignore'
-      - "*.md"
-      - "LICENSE"
   workflow_dispatch:
 
 jobs:
@@ -28,17 +8,10 @@ jobs:
     name: Build App
     runs-on: ubuntu-latest
     steps:
-  
-      - name: Generate bot data
-        if: github.event_name != 'pull_request'
-        run: |
-          echo "RANDOM_QUOTE=$(shuf -n1 <<<"$LIST_OF_QUOTES")" >> $GITHUB_ENV
-        env:
-          LIST_OF_QUOTES: ${{ secrets.LIST_OF_QUOTES }}
 
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           submodules: recursive
 
       - name: Set up JDK 21
@@ -62,51 +35,13 @@ jobs:
           echo "AKANE_RELEASE_KEY_PASSWORD=${{ secrets.KEY_PWD }}" >> ~/.gradle/gradle.properties
 
       - name: Build with Gradle
-        if: github.event_name != 'pull_request'
         run: ./gradlew :app:assembleRelease
-  
-      - name: Build with Gradle for pull request
-        if: github.event_name == 'pull_request'
-        run: ./gradlew :app:assembleDebug
 
       - name: Find apk
-        if: github.event_name != 'pull_request'
         run: |
           APK_FILE=$(find app/build/outputs/apk/release -name '*.apk')
           echo "APK_FILE=$APK_FILE" >> $GITHUB_ENV
           echo "APK_FILE_NAME=$(basename $APK_FILE .apk)" >> $GITHUB_ENV
-  
-      - name: Find apk for pull request
-        if: github.event_name == 'pull_request'
-        run: |
-          APK_FILE=$(find app/build/outputs/apk/debug -name '*.apk')
-          echo "APK_FILE=$APK_FILE" >> $GITHUB_ENV
-          echo "APK_FILE_NAME=$(basename $APK_FILE .apk)" >> $GITHUB_ENV
-        env:
-          API_ID: ${{ secrets.TG_APP_ID }}
-          API_HASH: ${{ secrets.TG_APP_HASH }}
-          BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-
-      - name: Upload files to Telegram
-        if: github.event_name != 'pull_request'
-        uses: xz-dev/TelegramFileUploader@v1.1.1
-        with:
-          to-who: ${{ secrets.TG_CHAT_ID }}
-          message: ${{ env.RANDOM_QUOTE }}
-          files: |
-            ${{ env.APK_FILE }}
-        env:
-          API_ID: ${{ secrets.TG_APP_ID }}
-          API_HASH: ${{ secrets.TG_APP_HASH }}
-          BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-
-      - name: Upload apk
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APK_FILE_NAME }}
-          path: ${{ env.APK_FILE }}
-          compression-level: 9
 
       - name: Upload apk
         if: github.event_name != 'pull_request'
