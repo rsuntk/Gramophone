@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2024 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -23,10 +23,10 @@ import androidx.core.app.ShareCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import kotlinx.coroutines.launch
 import org.akanework.gramophone.R
 import org.akanework.gramophone.logic.getFile
 import org.akanework.gramophone.logic.library.DeleteResult
-import org.akanework.gramophone.logic.library.LibraryWriteRepository
 import org.akanework.gramophone.logic.requireMediaStoreId
 import org.akanework.gramophone.logic.setMediaItemsSeamlessly
 import org.akanework.gramophone.logic.setMediaItemsWithTitle
@@ -48,7 +48,19 @@ internal const val SHORTCUT_SHUFFLE_ALL = "shuffle_all"
 
 /** Item and header actions of the library lists. */
 object LibraryActions {
-    fun playSong(env: AppActionEnv, songs: List<MediaItem>, position: Int, title: String) {
+    /**
+     * Plays [songs] from [position]. A position outside the list, from a row whose list was
+     * replaced under it, plays nothing.
+     */
+    fun playSong(
+        env: AppActionEnv,
+        songs: List<MediaItem>,
+        position: Int,
+        title: String,
+        /** Whether tapping the song that is already playing opens the full player. */
+        openPlayerIfCurrent: Boolean = true,
+    ) {
+        if (position !in songs.indices) return
         val mediaController = env.player ?: return
         // If the currently playing song is also the clicked song, then we continue playing the
         // song and open full player, but we still replace the list. This is intended to copy
@@ -58,7 +70,7 @@ object LibraryActions {
         mediaController.setMediaItemsSeamlessly(songs, position, title)
         mediaController.prepare()
         mediaController.play()
-        if (currentItem?.mediaId == songs[position].mediaId) {
+        if (openPlayerIfCurrent && currentItem?.mediaId == songs[position].mediaId) {
             env.playerSheet.open()
         }
     }
@@ -144,11 +156,11 @@ object LibraryActions {
     fun deleteSongs(
         env: AppActionEnv, songs: List<MediaItem>, @StringRes message: Int, name: CharSequence?
     ) {
-        val writes = env.writes
-        // On the application scope, so leaving the screen doesn't cancel the delete.
-        writes.deleteSongs(songs.map { it.getFile()!! to it.requireMediaStoreId() }) { result ->
-            confirmDelete(env, writes, result, env.getString(message, name))
-        }
+        val list = songs.map { it.getFile()!! to it.requireMediaStoreId() }
+        val confirmMessage = env.getString(message, name)
+        // This only prepares the delete, which runs once the user confirms it here or in the
+        // system's dialog, so it may stop with the screen.
+        env.scope.launch { confirmDelete(env, env.writes.deleteSongs(list), confirmMessage) }
     }
 
     fun deletePlaylist(env: AppActionEnv, item: Playlist) {
@@ -160,21 +172,15 @@ object LibraryActions {
             ).show()
             return
         }
-        val writes = env.writes
-        writes.deletePlaylist(id) { result ->
-            confirmDelete(env, writes, result, env.getString(
-                R.string.delete_really,
-                if (item is Favorite) env.getString(R.string.playlist_favourite)
-                else item.title
-            ))
-        }
+        val confirmMessage = env.getString(
+            R.string.delete_really,
+            if (item is Favorite) env.getString(R.string.playlist_favourite) else item.title
+        )
+        env.scope.launch { confirmDelete(env, env.writes.deletePlaylist(id), confirmMessage) }
     }
 
     /** Asks in the app before a delete the system would not ask about itself. */
-    private fun confirmDelete(
-        env: AppActionEnv, writes: LibraryWriteRepository, result: DeleteResult,
-        message: String,
-    ) {
+    private fun confirmDelete(env: AppActionEnv, result: DeleteResult, message: String) {
         when (result) {
             // Already queued for the system dialog, which asks the user itself.
             is DeleteResult.NeedsConsent -> Unit
@@ -182,7 +188,7 @@ object LibraryActions {
                 title = env.getString(R.string.delete),
                 message = message,
                 confirmText = env.getString(R.string.delete),
-                onConfirm = { writes.runConfirmed(result) },
+                onConfirm = { env.writes.runConfirmed(result) },
             ))
             is DeleteResult.Failed -> Toast.makeText(
                 env.context,

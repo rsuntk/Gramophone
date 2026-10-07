@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -68,7 +68,6 @@ import org.akanework.gramophone.ui.mapTabListToSetting
 
 private val TAB_ORDER_ITEM_HEIGHT = 50.dp
 private val TAB_ORDER_ITEM_PADDING = 18.dp
-private val DIVIDER_THICKNESS = 3.dp
 
 /** [initial] and the confirmed value are the stored "tabs" string, see [mapSettingToTabList]. */
 @Composable
@@ -185,7 +184,7 @@ private fun TabOrderItem(tab: HomeTab?, dragged: Boolean, modifier: Modifier = M
             Box(
                 Modifier
                     .weight(1f)
-                    .height(DIVIDER_THICKNESS)
+                    .height(3.dp)
                     .background(MaterialTheme.colorScheme.onSurfaceVariant),
             )
         }

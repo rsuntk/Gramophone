@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -17,24 +17,20 @@
 
 package org.akanework.gramophone.ui.components.player
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -48,131 +44,167 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
-import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
 import androidx.compose.material.icons.outlined.AlarmOff
 import androidx.compose.material.icons.outlined.AlarmOn
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.RepeatOne
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.Player
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withContext
+import org.akanework.gramophone.R
 import org.akanework.gramophone.logic.utils.CalculationUtils
+import org.akanework.gramophone.logic.utils.Flags
+import org.akanework.gramophone.ui.components.compose.AppDropdownMenu
+import org.akanework.gramophone.ui.components.compose.GroupButton
+import org.akanework.gramophone.ui.components.compose.GroupToggleButton
+import org.akanework.gramophone.ui.components.compose.IconTileButton
+import org.akanework.gramophone.ui.components.compose.TintedIcon
+import org.akanework.gramophone.ui.components.compose.rememberBooleanPreference
 import org.akanework.gramophone.ui.components.lyrics.LyricsOverlay
 import org.akanework.gramophone.ui.components.lyrics.LyricsOverlayState
 import org.akanework.gramophone.ui.components.lyrics.LyricsPadding
-import org.akanework.gramophone.ui.components.compose.rememberBooleanPreference
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.ACTION_BAR_VERTICAL_PADDING
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.ACTION_BUTTON_SIZE
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.ARTIST_LINE_HEIGHT
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.ARTIST_PROGRESS_GAP
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.ART_TOP_GAP
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.EXPANDED_ACTION_BAR
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.LANDSCAPE_MARGIN
-import org.akanework.gramophone.ui.components.player.PlayerUtilities.LANDSCAPE_TOP_BUTTON_SIZE
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.LAND_ART_BOTTOM
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.LAND_ART_START
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.LAND_ART_TOP
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.LYRIC_COVER_FADE_MS
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.PORTRAIT_MARGIN
-import org.akanework.gramophone.ui.components.player.PlayerUtilities.absolute
-import org.akanework.gramophone.ui.components.player.PlayerUtilities.absoluteUnbounded
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.PROGRESS_BAR_HEIGHT
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.SQUIGGLY_TRACK_ALPHA
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.TIME_LINE_HEIGHT
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.TIME_TRANSPORT_GAP
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.TITLE_ARTIST_GAP
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.TITLE_LINE_HEIGHT
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.TOP_BUTTON_SIZE
+import org.akanework.gramophone.ui.components.player.PlayerUtilities.TRANSPORT_BUTTON_SIZE
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.expandedContentAlpha
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.noRippleClickable
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 @Composable
 internal fun FullPlayerContent(
     state: NowPlayingSheetState,
-    metrics: PlayerSheetMetrics,
+    /** The sheet at the current progress, read in the layout and draw phases. */
+    frame: () -> SheetFrame,
+    geometry: SheetGeometry,
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
     lyrics: LyricsOverlayState,
+    queue: QueueRevealState,
     onOpenDialog: (PlayerDialog) -> Unit,
 ) {
-    val p = state.progress
-    val contentAlpha = expandedContentAlpha(p)
+    val expanding by remember(state) { derivedStateOf { state.progress > 0f } }
 
-    // Fade out the player content once the lyrics fully cover it
-    val lyricsCovering by player.lyricsCovering.collectAsState()
+    // Fade out the player content once the lyrics fully cover it. Derived, so the lyrics' fade
+    // and back gesture don't recompose the player every frame.
+    val lyricsCovering by remember(lyrics) { derivedStateOf { lyrics.covering } }
     val playerVisibility by animateFloatAsState(
         targetValue = if (lyricsCovering) 0f else 1f,
-        animationSpec = tween(PlayerUtilities.LYRIC_COVER_FADE_MS),
+        animationSpec = tween(LYRIC_COVER_FADE_MS),
         label = "player lyrics fade",
     )
+    val playerShown by remember { derivedStateOf { playerVisibility > 0f } }
 
-    Box(
-        Modifier
-            .absolute(metrics.sheetLeft, metrics.sheetTop, metrics.sheetWidth, metrics.sheetHeight)
-            .clip(RoundedCornerShape(metrics.cornerDp)),
-    ) {
+    Box(Modifier.onSheet(frame)) {
         // The lyrics fill the whole screen under the player, padded for the system bars
         LyricsOverlay(
             state = lyrics,
             scheme = scheme,
             padding = LyricsPadding(
-                left = metrics.leftInset.toInt(),
-                top = metrics.statusTop.toInt(),
-                right = metrics.rightInset.toInt(),
-                bottom = metrics.bottomInset.toInt(),
+                left = geometry.leftInset.toInt(),
+                top = geometry.statusTop.toInt(),
+                right = geometry.rightInset.toInt(),
+                bottom = geometry.bottomInset.toInt(),
             ),
-            modifier = Modifier
-                .absoluteUnbounded(-metrics.sheetLeft, 0f, metrics.rootWidth, metrics.rootHeight)
-                .graphicsLayer { translationY = metrics.contentFollowTop - metrics.sheetTop },
+            modifier = Modifier.pageFollowingCover(frame),
         )
-        if (state.progress > 0f && playerVisibility > 0f) {
+        if (expanding && playerShown) {
             Box(
                 Modifier
-                    .absoluteUnbounded(-metrics.sheetLeft, 0f, metrics.rootWidth, metrics.rootHeight)
-                    .graphicsLayer {
-                        translationY = metrics.contentFollowTop - metrics.sheetTop
-                        alpha = contentAlpha * playerVisibility
+                    .pageFollowingCover(frame) {
+                        alpha = expandedContentAlpha(it.progress) * playerVisibility
                     }
-                    .background(scheme.surface)
-                    .then(
-                        if (lyricsCovering) Modifier
-                        else Modifier.draggable(
-                            state = rememberDraggableState { delta -> state.onDrag(delta) },
-                            orientation = Orientation.Vertical,
-                            onDragStopped = { velocity -> state.settle(velocity) },
-                        )
-                    ),
+                    .drawBehind { drawRect(scheme.color { surfaceContainerLow }) }
+                    .sheetDrag(state, enabled = !lyricsCovering && !queue.shown),
             ) {
-                FullPlayerScaffold(metrics, player, actions, scheme, onOpenDialog)
+                FullPlayerScaffold(geometry, player, actions, scheme, onOpenDialog, queue)
             }
         }
     }
@@ -180,94 +212,92 @@ internal fun FullPlayerContent(
 
 @Composable
 private fun FullPlayerScaffold(
-    metrics: PlayerSheetMetrics,
+    geometry: SheetGeometry,
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
     onOpenDialog: (PlayerDialog) -> Unit,
+    queue: QueueRevealState,
 ) {
     val density = LocalDensity.current
-    val statusDp = with(density) { metrics.statusTop.toDp() }
-    val navDp = with(density) { metrics.bottomInset.toDp() }
-    val leftDp = with(density) { metrics.leftInset.toDp() }
-    val rightDp = with(density) { metrics.rightInset.toDp() }
-    val coverDp = with(density) { metrics.expandedArtSize.toDp() }
-    if (metrics.isWideLandscape) {
-        LandscapeScaffold(coverDp, statusDp, navDp, leftDp, rightDp, player, actions, scheme, onOpenDialog)
+    // Clear of the system bars and cutouts, on their own sides whatever the layout direction
+    val insets = with(density) {
+        PaddingValues.Absolute(
+            left = geometry.leftInset.toDp(),
+            top = geometry.statusTop.toDp(),
+            right = geometry.rightInset.toDp(),
+            bottom = geometry.bottomInset.toDp(),
+        )
+    }
+    val coverSize = with(density) { geometry.expandedArtSize.toDp() }
+    if (geometry.isWideLandscape) {
+        LandscapeScaffold(coverSize, insets, player, actions, scheme, onOpenDialog, queue)
     } else {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(top = statusDp, bottom = navDp, start = leftDp, end = rightDp),
+                .padding(insets),
         ) {
-            TopButtonRow(player, actions, scheme, onOpenDialog)
-            Spacer(Modifier.height(16.dp))
+            TopButtonRow(player, actions, scheme, onOpenDialog, Modifier.fadingOverQueue(queue))
+            Spacer(Modifier.height(ART_TOP_GAP))
             // The cover's slot. Its size already leaves the controls below their natural height
-            // (see playerSheetMetrics), so they sit centered in what is left.
-            Spacer(Modifier.height(coverDp))
+            // (see SheetGeometry), so they sit centered in what is left.
+            Spacer(Modifier.height(coverSize))
             Box(
                 Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .fadingOverQueue(queue),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(Modifier.fillMaxWidth()) {
-                    TitleArtist(player, actions, scheme, PORTRAIT_MARGIN)
-                    Spacer(Modifier.height(12.dp))
-                    ProgressSection(player, actions, scheme, PORTRAIT_MARGIN)
-                    Spacer(Modifier.height(18.dp))
-                    TransportRow(player, actions, scheme)
-                }
+                PlayerControls(
+                    player, actions, scheme, onOpenDialog, PORTRAIT_MARGIN, Modifier.fillMaxWidth(),
+                )
             }
-            ActionBarRow(player, actions, scheme)
+            // The bottom row's place: the row is on top of the queue, see QueueDrawer
+            Spacer(Modifier.height(EXPANDED_ACTION_BAR))
         }
     }
 }
 
 @Composable
 private fun LandscapeScaffold(
-    coverDp: Dp,
-    statusDp: Dp,
-    navDp: Dp,
-    leftDp: Dp,
-    rightDp: Dp,
+    coverSize: Dp,
+    insets: PaddingValues,
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
     onOpenDialog: (PlayerDialog) -> Unit,
+    queue: QueueRevealState,
 ) {
     Box(
         Modifier
             .fillMaxSize()
-            .padding(top = statusDp, bottom = navDp, start = leftDp, end = rightDp),
+            .padding(insets),
     ) {
         Row(Modifier.fillMaxSize()) {
             Box(
                 Modifier
-                    .padding(start = 24.dp, top = 16.dp, bottom = 25.dp)
+                    .padding(start = LAND_ART_START, top = LAND_ART_TOP, bottom = LAND_ART_BOTTOM)
                     .fillMaxHeight()
-                    .width(coverDp),
+                    .width(coverSize),
             )
             Column(
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(top = 10.dp, end = LANDSCAPE_TOP_BUTTON_SIZE),
+                    .padding(top = 10.dp, end = TOP_BUTTON_SIZE),
             ) {
-                Column(
-                    Modifier
+                PlayerControls(
+                    player, actions, scheme, onOpenDialog, LANDSCAPE_MARGIN,
+                    modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .heightIn(min = 200.dp),
+                        .heightIn(min = 200.dp)
+                        .fadingOverQueue(queue),
                     verticalArrangement = Arrangement.Center,
-                ) {
-                    TitleArtist(player, actions, scheme, LANDSCAPE_MARGIN)
-                    Spacer(Modifier.height(12.dp))
-                    ProgressSection(player, actions, scheme, LANDSCAPE_MARGIN)
-                    Spacer(Modifier.height(18.dp))
-                    TransportRow(player, actions, scheme)
-                }
-                ActionBarRow(player, actions, scheme)
+                )
+                Spacer(Modifier.height(EXPANDED_ACTION_BAR))
             }
         }
         TopButtonColumn(
@@ -279,22 +309,46 @@ private fun LandscapeScaffold(
     }
 }
 
+/**
+ * Fades out as the [queue] comes up over the player, and is out of reach of screen readers once
+ * under it.
+ */
+private fun Modifier.fadingOverQueue(queue: QueueRevealState): Modifier =
+    graphicsLayer { alpha = 1f - queue.progress }
+        .then(if (queue.revealed) Modifier.clearAndSetSemantics {} else Modifier)
+
+/** The title and artist, the progress bar and times, and the transport row. */
+@Composable
+private fun PlayerControls(
+    player: PlayerSheetPlayerState,
+    actions: FullPlayerActions,
+    scheme: AnimatedColorScheme,
+    onOpenDialog: (PlayerDialog) -> Unit,
+    horizontalMargin: Dp,
+    modifier: Modifier = Modifier,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+) {
+    Column(modifier, verticalArrangement = verticalArrangement) {
+        TitleArtist(player, actions, scheme, horizontalMargin)
+        Spacer(Modifier.height(ARTIST_PROGRESS_GAP))
+        ProgressSection(player, actions, scheme, onOpenDialog, horizontalMargin)
+        Spacer(Modifier.height(TIME_TRANSPORT_GAP))
+        TransportRow(player, actions, scheme)
+    }
+}
+
 @Composable
 private fun TopButtonColumn(
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
     onOpenDialog: (PlayerDialog) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val timerActive by player.timerActive.collectAsState()
+    // Bare icons in landscape, beside the controls rather than over the cover
     Column(modifier) {
-        IconSlot(Icons.Outlined.ExpandMore, scheme.onSurface, 52.dp, 28.dp, actions.minimize)
-        IconSlot(Icons.Outlined.Speed, scheme.onSurface, 52.dp, 24.dp) { onOpenDialog(PlayerDialog.Speed) }
-        IconSlot(
-            image = if (timerActive) Icons.Outlined.AlarmOn else Icons.Outlined.AlarmOff,
-            tint = scheme.onSurface, box = 52.dp, icon = 24.dp, onClick = { onOpenDialog(PlayerDialog.Timer) },
-        )
+        MinimizeButton(scheme, actions.minimize, filled = false)
+        OverflowButton(player, scheme, onOpenDialog, filled = false)
     }
 }
 
@@ -302,56 +356,95 @@ private fun TopButtonColumn(
 private fun TopButtonRow(
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
     onOpenDialog: (PlayerDialog) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val timerActive by player.timerActive.collectAsState()
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(TOP_BUTTON_SIZE),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Spacer(Modifier.width(24.dp))
-        IconSlot(Icons.Outlined.ExpandMore, scheme.onSurface, 52.dp, 28.dp, actions.minimize)
+        MinimizeButton(scheme, actions.minimize)
         Spacer(Modifier.weight(1f))
-        IconSlot(
-            image = if (timerActive) Icons.Outlined.AlarmOn else Icons.Outlined.AlarmOff,
-            tint = scheme.onSurface, box = 52.dp, icon = 24.dp, onClick = { onOpenDialog(PlayerDialog.Timer) },
-        )
-        IconSlot(Icons.Outlined.Speed, scheme.onSurface, 52.dp, 24.dp) { onOpenDialog(PlayerDialog.Speed) }
+        OverflowButton(player, scheme, onOpenDialog)
         Spacer(Modifier.width(24.dp))
     }
 }
 
 @Composable
-private fun IconSlot(image: ImageVector, tint: Color, box: Dp, icon: Dp, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .size(box)
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(image, contentDescription = null, tint = tint, modifier = Modifier.size(icon))
+private fun MinimizeButton(
+    scheme: AnimatedColorScheme,
+    onClick: () -> Unit,
+    filled: Boolean = true,
+) {
+    IconTileButton(
+        Icons.Outlined.ExpandMore, stringResource(R.string.expand_less),
+        scheme.colorProducer { onSurface }, onClick, Modifier.topButtonSlot(), iconSize = 28.dp,
+        container = if (filled) scheme.colorProducer { surfaceBright } else null,
+    )
+}
+
+/** The timer and the playback speed, in a menu in the cover's colours like the player's dialogs. */
+@Composable
+private fun OverflowButton(
+    player: PlayerSheetPlayerState,
+    scheme: AnimatedColorScheme,
+    onOpenDialog: (PlayerDialog) -> Unit,
+    filled: Boolean = true,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val open = { dialog: PlayerDialog ->
+        menuOpen = false
+        onOpenDialog(dialog)
+    }
+    Box {
+        IconTileButton(
+            Icons.Outlined.MoreVert, stringResource(R.string.more),
+            scheme.colorProducer { onSurface }, { menuOpen = true }, Modifier.topButtonSlot(),
+            container = if (filled) scheme.colorProducer { surfaceBright } else null,
+        )
+        MaterialTheme(colorScheme = scheme.target) {
+            AppDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                OverflowItem(
+                    if (player.timerActive) Icons.Outlined.AlarmOn else Icons.Outlined.AlarmOff,
+                    R.string.timer,
+                ) { open(PlayerDialog.Timer) }
+                OverflowItem(Icons.Outlined.Speed, R.string.playback_speed) { open(PlayerDialog.Speed) }
+            }
+        }
     }
 }
+
+/** An entry of the player's menu. */
+@Composable
+private fun OverflowItem(image: ImageVector, @StringRes title: Int, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(stringResource(title), fontSize = 16.sp, fontWeight = FontWeight.Normal) },
+        onClick = onClick,
+        leadingIcon = { Icon(image, contentDescription = null) },
+    )
+}
+
+/** A top button's slot: [TOP_BUTTON_SIZE], the button in it as tall as the bottom row's. */
+private fun Modifier.topButtonSlot(): Modifier =
+    size(TOP_BUTTON_SIZE).padding((TOP_BUTTON_SIZE - ACTION_BUTTON_SIZE) / 2)
 
 /** How long the title and artist take to fade out, and then in, when the song changes. */
 private const val TEXT_FADE_MS = 300
 
-/** How far in from each end the scrolling title and artist fade out. */
-private val MARQUEE_FADE_EDGE = 16.dp
+/** The pause before each round of a line too long to fit, as the View marquee's. */
+private const val MARQUEE_DELAY_MS = 1200L
 
 @Composable
 private fun TitleArtist(
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
     horizontalMargin: Dp,
 ) {
-    val title by player.title.collectAsState()
-    val artist by player.artist.collectAsState()
     val bold = rememberBooleanPreference("bold_title", true).value
     val centered = rememberBooleanPreference("centered_title", false).value
     val align = if (centered) TextAlign.Center else TextAlign.Start
@@ -362,20 +455,20 @@ private fun TitleArtist(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         FadingMarqueeText(
-            text = title?.toString().orEmpty(),
-            color = scheme.primary,
+            text = player.title?.toString().orEmpty(),
+            color = scheme.colorProducer { primary },
             fontSize = 24.sp,
-            lineHeight = 32.sp,
+            lineHeight = TITLE_LINE_HEIGHT,
             fontWeight = if (bold) FontWeight.W600 else FontWeight.W400,
             align = align,
             onClick = actions.openAlbum,
         )
-        Spacer(Modifier.height(3.dp))
+        Spacer(Modifier.height(TITLE_ARTIST_GAP))
         FadingMarqueeText(
-            text = artist?.toString().orEmpty(),
-            color = scheme.secondary,
+            text = player.artist?.toString().orEmpty(),
+            color = scheme.colorProducer { secondary },
             fontSize = 19.sp,
-            lineHeight = 25.sp,
+            lineHeight = ARTIST_LINE_HEIGHT,
             fontWeight = FontWeight.W500,
             align = align,
             onClick = actions.openArtist,
@@ -385,13 +478,14 @@ private fun TitleArtist(
 
 /**
  * A single scrolling line, which fades out and the new text in when it changes (like the View
- * player's setTextAnimation) and fades its ends while the text is too long to fit.
+ * player's setTextAnimation), and scrolls round while the text is too long to fit, as the View
+ * player's marquee did.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FadingMarqueeText(
     text: String,
-    color: Color,
+    /** Read in the draw phase. */
+    color: ColorProducer,
     fontSize: TextUnit,
     // A fixed line height, so a title falling back to a taller font (CJK after Latin, say) keeps
     // the same height and the controls below don't jump when the song changes.
@@ -404,74 +498,138 @@ private fun FadingMarqueeText(
         targetState = text,
         modifier = Modifier.fillMaxWidth(),
         transitionSpec = {
-            (fadeIn(tween(TEXT_FADE_MS, delayMillis = TEXT_FADE_MS)) togetherWith fadeOut(tween(TEXT_FADE_MS)))
-                .using(null)
+            val fadeInNew = fadeIn(tween(TEXT_FADE_MS, delayMillis = TEXT_FADE_MS))
+            (fadeInNew togetherWith fadeOut(tween(TEXT_FADE_MS))).using(null)
         },
         label = "player text fade",
     ) { shown ->
-        // Width of the laid out line: wider than the slot only when it overflows and scrolls
-        var lineWidth by remember { mutableIntStateOf(0) }
-        Text(
+        val marquee = remember { MarqueeState() }
+        // A second's scroll, as the View marquee's
+        val velocity = with(LocalDensity.current) { 30.dp.toPx() }
+        LaunchedEffect(marquee, velocity) { marquee.run(velocity) }
+        BasicText(
             text = shown,
             color = color,
-            fontSize = fontSize,
-            fontWeight = fontWeight,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = align,
             style = LocalTextStyle.current.copy(
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                textAlign = align,
                 lineHeight = lineHeight,
                 lineHeightStyle = LineHeightStyle(
                     LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None,
                 ),
                 platformStyle = PlatformTextStyle(includeFontPadding = false),
             ),
-            onTextLayout = { lineWidth = it.size.width },
             modifier = Modifier
                 .fillMaxWidth()
-                .marqueeFadingEdges { lineWidth }
-                .basicMarquee(iterations = Int.MAX_VALUE)
-                .noRippleClickable(onClick),
+                .noRippleClickable(onClick)
+                .marquee(marquee),
         )
     }
 }
 
-/** Fades both ends of a [basicMarquee] line out while its text ([lineWidth]) overflows. */
-private fun Modifier.marqueeFadingEdges(lineWidth: () -> Int): Modifier =
-    graphicsLayer {
+/** How far a [marquee] line has scrolled, and how long it is for the room it has. */
+@Stable
+private class MarqueeState {
+    // Set as the line is measured
+    var lineWidth by mutableIntStateOf(0)
+    var slotWidth by mutableIntStateOf(0)
+    val offset = Animatable(0f)
+
+    val overflows: Boolean get() = lineWidth > slotWidth
+
+    /** A round: the line and the gap to its next copy, a third of the room as the View's. */
+    val distance: Float get() = lineWidth + slotWidth / 3f
+
+    /** Scrolls a round at [velocity] px a second after each pause, while the line overflows. */
+    suspend fun run(velocity: Float) = withContext(FixedMotionDurationScale) {
+        snapshotFlow { if (overflows) distance else null }.collectLatest { distance ->
+            offset.snapTo(0f)
+            if (distance == null) return@collectLatest
+            val round = tween<Float>((distance / velocity * 1000).roundToInt(), easing = LinearEasing)
+            while (true) {
+                delay(MARQUEE_DELAY_MS)
+                offset.animateTo(distance, round)
+                offset.snapTo(0f)
+            }
+        }
+    }
+}
+
+// Like basicMarquee's, the marquee keeps its pace with animations scaled or turned off
+private object FixedMotionDurationScale : MotionDurationScale {
+    override val scaleFactor: Float get() = 1f
+}
+
+/**
+ * Lays the line out as long as it is and scrolls it round by [state], with its ends faded while
+ * it overflows: its end all along, its start only once it has moved off it, as the View marquee
+ * did, so a line at rest shows its start in full.
+ */
+private fun Modifier.marquee(state: MarqueeState): Modifier = this
+    .graphicsLayer {
         compositingStrategy =
-            if (lineWidth() > size.width) CompositingStrategy.Offscreen else CompositingStrategy.Auto
-    }.drawWithContent {
-        drawContent()
-        if (lineWidth() <= size.width) return@drawWithContent
-        val edge = MARQUEE_FADE_EDGE.toPx().coerceAtMost(size.width / 2f)
-        drawRect(
-            brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = edge),
-            size = Size(edge, size.height),
-            blendMode = BlendMode.DstIn,
-        )
-        drawRect(
-            brush = Brush.horizontalGradient(
-                listOf(Color.Black, Color.Transparent), startX = size.width - edge, endX = size.width,
-            ),
-            topLeft = Offset(size.width - edge, 0f),
-            size = Size(edge, size.height),
-            blendMode = BlendMode.DstIn,
+            if (state.overflows) CompositingStrategy.Offscreen else CompositingStrategy.Auto
+    }
+    .drawWithContent {
+        if (!state.overflows) {
+            drawContent()
+            return@drawWithContent
+        }
+        val offset = state.offset.value
+        val distance = state.distance
+        // A right-to-left line starts at the right, and scrolls the other way
+        val rtl = layoutDirection == LayoutDirection.Rtl
+        clipRect {
+            translate(left = if (rtl) size.width - state.lineWidth + offset else -offset) {
+                this@drawWithContent.drawContent()
+                translate(left = if (rtl) -distance else distance) { this@drawWithContent.drawContent() }
+            }
+        }
+        val edge = 16.dp.toPx().coerceAtMost(size.width / 2f)
+        // In as the line leaves its start, and out again as the next copy comes in to it
+        val startFade = (min(offset, distance - offset) / edge).coerceIn(0f, 1f)
+        fadeEnd(left = true, strength = if (rtl) 1f else startFade, edge = edge)
+        fadeEnd(left = false, strength = if (rtl) startFade else 1f, edge = edge)
+    }
+    .layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints.copy(maxWidth = Constraints.Infinity))
+        val width = constraints.constrainWidth(placeable.width)
+        state.lineWidth = placeable.width
+        state.slotWidth = width
+        layout(width, placeable.height) { placeable.placeWithLayer(0, 0) }
+    }
+
+/** Fades out [edge] px at the left or right end of what's drawn, fully at [strength] 1. */
+private fun DrawScope.fadeEnd(left: Boolean, strength: Float, edge: Float) {
+    if (strength <= 0f) return
+    val faded = Color.Black.copy(alpha = 1f - strength)
+    val brush = if (left) {
+        Brush.horizontalGradient(listOf(faded, Color.Black), startX = 0f, endX = edge)
+    } else {
+        Brush.horizontalGradient(
+            listOf(Color.Black, faded), startX = size.width - edge, endX = size.width,
         )
     }
+    drawRect(
+        brush = brush,
+        topLeft = Offset(if (left) 0f else size.width - edge, 0f),
+        size = Size(edge, size.height),
+        blendMode = BlendMode.DstIn,
+    )
+}
 
 @Composable
 private fun ProgressSection(
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
+    onOpenDialog: (PlayerDialog) -> Unit,
     horizontalMargin: Dp,
 ) {
-    val positionMs by player.positionMs.collectAsState()
-    val durationMs by player.durationMs.collectAsState()
-    val isPlaying by player.isPlaying.collectAsState()
-    val qualityIcon by player.qualityIcon.collectAsState()
-    val qualityText by player.qualityText.collectAsState()
+    val positionMs = player.positionMs
+    val durationMs = player.durationMs
     // While scrubbing, the drag fraction drives both the bar and the position text (no live seek)
     var scrub by remember { mutableStateOf<Float?>(null) }
     val duration = durationMs.coerceAtLeast(1L)
@@ -480,10 +638,12 @@ private fun ProgressSection(
     val displayPositionMs = scrub?.let { (it * duration).toLong() } ?: positionMs
     val defaultProgressBar = rememberBooleanPreference("default_progress_bar", false).value
 
+    val sliderDescription = stringResource(R.string.position_slider)
     val barModifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = horizontalMargin)
-        .height(48.dp)
+        .height(PROGRESS_BAR_HEIGHT)
+        .semantics { contentDescription = sliderDescription }
     if (defaultProgressBar) {
         Slider(
             value = fraction,
@@ -493,24 +653,25 @@ private fun ProgressSection(
                 scrub = null
             },
             colors = SliderDefaults.colors(
-                thumbColor = scheme.primary,
-                activeTrackColor = scheme.primary,
-                inactiveTrackColor = scheme.primary.copy(alpha = PlayerUtilities.SQUIGGLY_TRACK_ALPHA),
+                thumbColor = scheme.color { primary },
+                activeTrackColor = scheme.color { primary },
+                inactiveTrackColor = scheme.color { primary }.copy(alpha = SQUIGGLY_TRACK_ALPHA),
             ),
             modifier = barModifier,
         )
     } else {
         SquigglyProgressBar(
             fraction = fraction,
-            animating = isPlaying && scrub == null,
-            color = scheme.primary,
-            trackColor = scheme.primary.copy(alpha = PlayerUtilities.SQUIGGLY_TRACK_ALPHA),
-            modifier = barModifier,
+            animating = player.isPlaying && scrub == null,
+            color = scheme.colorProducer { primary },
+            trackColor = scheme.colorProducer { primary.copy(alpha = SQUIGGLY_TRACK_ALPHA) },
             onScrub = { scrub = it },
             onSeek = {
                 actions.seekTo((it * duration).toLong())
                 scrub = null
-            },            onScrubCancel = { scrub = null },
+            },
+            onScrubCancel = { scrub = null },
+            modifier = barModifier,
         )
     }
     Row(
@@ -519,64 +680,85 @@ private fun ProgressSection(
             .padding(horizontal = horizontalMargin),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            CalculationUtils.convertDurationToTimeStamp(displayPositionMs),
-            color = scheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.W600,
-        )
+        val timeColor = scheme.colorProducer { onSurfaceVariant }
+        TimeText(CalculationUtils.convertDurationToTimeStamp(displayPositionMs), timeColor, 14.sp)
         Spacer(Modifier.weight(1f))
-        val quality = qualityText
+        val quality = player.qualityText
         if (!quality.isNullOrEmpty()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                qualityIcon?.let {
-                    Icon(
-                        painterResource(it),
-                        contentDescription = null,
-                        tint = scheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
-                    )
+            // On a pill of the secondary container, as tall as the times beside it. Tapped, it
+            // shows the whole signal chain.
+            val qualityColor = scheme.colorProducer { onSecondaryContainer }
+            val showChain = if (Flags.FORMAT_INFO_DIALOG) {
+                Modifier.clickable(onClickLabel = stringResource(R.string.audio_signal_chain)) {
+                    onOpenDialog(PlayerDialog.SignalChain)
+                }
+            } else {
+                Modifier
+            }
+            Row(
+                Modifier
+                    .clip(CircleShape)
+                    .then(showChain)
+                    .drawBehind { drawRect(scheme.color { secondaryContainer }) }
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                player.qualityIcon?.let {
+                    TintedIcon(painterResource(it), qualityColor, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                 }
-                Text(
-                    quality,
-                    color = scheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                )
+                TimeText(quality, qualityColor, 12.sp)
             }
             Spacer(Modifier.weight(1f))
         }
-        Text(
-            CalculationUtils.convertDurationToTimeStamp(durationMs),
-            color = scheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.W600,
-        )
+        TimeText(CalculationUtils.convertDurationToTimeStamp(durationMs), timeColor, 14.sp)
     }
+}
+
+/** A line of the time row, in [color] read in the draw phase. */
+@Composable
+private fun TimeText(text: String, color: ColorProducer, fontSize: TextUnit) {
+    BasicText(
+        text,
+        style = LocalTextStyle.current.copy(
+            fontSize = fontSize,
+            fontWeight = FontWeight.W600,
+            lineHeight = TIME_LINE_HEIGHT,
+        ),
+        color = color,
+    )
 }
 
 /** How far the play button's backdrop turns as it blooms into the cookie. */
 private const val PLAY_MORPH_ROTATION = 30f
+
+/** The play button's backdrop as a fraction of its slot. */
+private const val PLAY_BACKDROP_SCALE = 0.95f
 
 /** The expressive scheme's quick, slightly bouncy spring, for the play button's morph. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private val PLAY_MORPH_SPEC = MotionScheme.expressive().fastSpatialSpec<Float>()
 
 @Composable
-private fun TransportRow(player: PlayerSheetPlayerState, actions: FullPlayerActions, scheme: ColorScheme) {
-    val showPause by player.showPause.collectAsState()
+private fun TransportRow(
+    player: PlayerSheetPlayerState,
+    actions: FullPlayerActions,
+    scheme: AnimatedColorScheme,
+) {
+    val showPause = player.showPause
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TransportButton(
-            image = Icons.Outlined.SkipPrevious, tint = scheme.onSurface, icon = 38.dp,
-            onClick = actions.previous, onLongClick = actions.seekBack,
+        IconTileButton(
+            Icons.Outlined.SkipPrevious, stringResource(R.string.skip_previous),
+            scheme.colorProducer { onSurface }, actions.previous, Modifier.transportSlot(),
+            iconSize = 38.dp, indication = null, onLongClick = actions.seekBack,
         )
         Spacer(Modifier.width(8.dp))
-        val morph by animateFloatAsState(
+        // Read in the draw phase, so the morph doesn't recompose the row every frame
+        val morph = animateFloatAsState(
             targetValue = if (showPause) 1f else 0f,
             animationSpec = PLAY_MORPH_SPEC,
             label = "play button morph",
@@ -590,77 +772,114 @@ private fun TransportRow(player: PlayerSheetPlayerState, actions: FullPlayerActi
             Box(
                 Modifier
                     .matchParentSize()
-                    .graphicsLayer { rotationZ = PLAY_MORPH_ROTATION * morph }
-                    .background(scheme.secondaryContainer, PlayButtonMorphShape(morph)),
+                    .graphicsLayer {
+                        rotationZ = PLAY_MORPH_ROTATION * morph.value
+                        scaleX = PLAY_BACKDROP_SCALE
+                        scaleY = PLAY_BACKDROP_SCALE
+                    }
+                    .drawBehind {
+                        val outline = PlayButtonMorphShape(morph.value)
+                            .createOutline(size, layoutDirection, this)
+                        drawOutline(outline, scheme.color { secondaryContainer })
+                    },
             )
-            PlayPauseIcon(playing = showPause, tint = scheme.onSecondaryContainer, modifier = Modifier.size(42.dp))
+            PlayPauseIcon(
+                playing = showPause,
+                tint = scheme.colorProducer { onSecondaryContainer },
+                modifier = Modifier.size(42.dp),
+                contentDescription =
+                    stringResource(if (showPause) R.string.pause else R.string.play),
+            )
         }
         Spacer(Modifier.width(8.dp))
-        TransportButton(
-            image = Icons.Outlined.SkipNext, tint = scheme.onSurface, icon = 38.dp,
-            onClick = actions.next, onLongClick = actions.seekForward,
+        IconTileButton(
+            Icons.Outlined.SkipNext, stringResource(R.string.skip_next),
+            scheme.colorProducer { onSurface }, actions.next, Modifier.transportSlot(),
+            iconSize = 38.dp, indication = null, onLongClick = actions.seekForward,
         )
     }
 }
 
-/** A 90dp square transport button that shrinks as a square, never squashed, if it has to. */
+/** A square transport button that shrinks as a square, never squashed, if it has to. */
 private fun Modifier.transportSlot(): Modifier =
-    sizeIn(maxWidth = 90.dp, maxHeight = 90.dp).aspectRatio(1f, matchHeightConstraintsFirst = true)
+    sizeIn(maxWidth = TRANSPORT_BUTTON_SIZE, maxHeight = TRANSPORT_BUTTON_SIZE)
+        .aspectRatio(1f, matchHeightConstraintsFirst = true)
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * The bottom row: Material 3 expressive's connected button group, on the brightest surface, as
+ * wide as the controls above it. The toggles round off when on, on the primary container (the
+ * favourite on the tertiary one).
+ * It sits on top of the queue, which comes up with it when dragged up (see QueueDrawer).
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun TransportButton(
-    image: ImageVector,
-    tint: Color,
-    icon: Dp,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-) {
-    Box(
-        Modifier
-            .transportSlot()
-            .clip(CircleShape)
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(image, contentDescription = null, tint = tint, modifier = Modifier.size(icon))
-    }
-}
-
-@Composable
-private fun ActionBarRow(
+internal fun ActionBarRow(
     player: PlayerSheetPlayerState,
     actions: FullPlayerActions,
-    scheme: ColorScheme,
+    scheme: AnimatedColorScheme,
+    horizontalMargin: Dp,
+    modifier: Modifier = Modifier,
 ) {
-    val repeatMode by player.repeatMode.collectAsState()
-    val shuffle by player.shuffleMode.collectAsState()
-    val favorite by player.isFavorite.collectAsState()
-    val checkTint = { on: Boolean -> if (on) scheme.onSurface else scheme.outlineVariant }
+    val repeatMode = player.repeatMode
+    val shuffle = player.shuffleMode
+    val favorite = player.isFavorite
+    val plainTint = scheme.colorProducer { onSurface }
+    val checkTint = { on: Boolean ->
+        scheme.colorProducer { if (on) onPrimaryContainer else onSurfaceVariant }
+    }
+    val container = scheme.color { surfaceBright }
+    val checkedContainer = scheme.color { primaryContainer }
+    val leading = ButtonGroupDefaults.connectedLeadingButtonShapes()
+    val middle = ButtonGroupDefaults.connectedMiddleButtonShapes()
+    val trailing = ButtonGroupDefaults.connectedTrailingButtonShapes()
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
-            .padding(horizontal = 38.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(
+                start = horizontalMargin,
+                top = ACTION_BAR_VERTICAL_PADDING,
+                end = horizontalMargin,
+                bottom = ACTION_BAR_VERTICAL_PADDING,
+            ),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconSlot(Icons.AutoMirrored.Outlined.Article, scheme.onSurface, 48.dp, 24.dp, actions.showLyrics)
-        IconSlot(
-            image = if (repeatMode == PlayerUtilities.PLAYER_REPEAT_ONE) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat,
-            tint = checkTint(repeatMode != PlayerUtilities.PLAYER_REPEAT_OFF),
-            box = 48.dp, icon = 24.dp, onClick = actions.cycleRepeat,
+        val slot = Modifier.weight(1f).height(ACTION_BUTTON_SIZE)
+        GroupButton(
+            Icons.AutoMirrored.Outlined.Article, stringResource(R.string.dialog_lyrics), plainTint,
+            leading, container, actions.showLyrics, slot,
         )
-        IconSlot(Icons.Outlined.Shuffle, checkTint(shuffle), 48.dp, 24.dp) { actions.toggleShuffle(!shuffle) }
-        IconSlot(
-            image = if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
-            tint = if (favorite) scheme.tertiary else scheme.onSurface,
-            box = 48.dp, icon = 24.dp, onClick = { actions.toggleFavorite(!favorite) },
+        GroupToggleButton(
+            icon = if (repeatMode == Player.REPEAT_MODE_ONE) {
+                Icons.Outlined.RepeatOne
+            } else {
+                Icons.Outlined.Repeat
+            },
+            contentDescription = stringResource(R.string.repeat_mode),
+            tint = checkTint(repeatMode != Player.REPEAT_MODE_OFF),
+            shapes = middle,
+            container = container,
+            checkedContainer = checkedContainer,
+            checked = repeatMode != Player.REPEAT_MODE_OFF,
+            onClick = actions.cycleRepeat,
+            modifier = slot,
         )
-        IconSlot(Icons.AutoMirrored.Outlined.PlaylistPlay, scheme.onSurface, 48.dp, 24.dp, actions.showQueue)
+        GroupToggleButton(
+            Icons.Outlined.Shuffle, stringResource(R.string.shuffle), checkTint(shuffle), middle,
+            container, checkedContainer, shuffle, { actions.toggleShuffle(!shuffle) }, slot,
+        )
+        GroupToggleButton(
+            icon = if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = stringResource(R.string.playlist_favourite),
+            // The favourite on the tertiary colours rather than the primary ones
+            tint = scheme.colorProducer { if (favorite) onTertiaryContainer else onSurface },
+            shapes = trailing,
+            container = container,
+            checkedContainer = scheme.color { tertiaryContainer },
+            checked = favorite,
+            onClick = { actions.toggleFavorite(!favorite) },
+            modifier = slot,
+        )
     }
 }
+

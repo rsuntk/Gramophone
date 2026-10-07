@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -51,7 +51,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.materialkolor.ktx.animateColorScheme
 import org.akanework.gramophone.R
+import org.akanework.gramophone.logic.utils.AudioFormatDetector
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.SPEED_MAX
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.SPEED_MIN
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.SPEED_STEPS
@@ -60,7 +62,7 @@ import java.text.NumberFormat
 import java.text.ParseException
 import java.util.Date
 
-enum class PlayerDialog { Timer, Speed }
+enum class PlayerDialog { Timer, Speed, SignalChain }
 
 class PlayerDialogCallbacks(
     val currentSpeed: () -> Float,
@@ -71,6 +73,8 @@ class PlayerDialogCallbacks(
     val setTimer: (durationMs: Int, eos: Boolean) -> Unit,
     val getBool: (key: String, def: Boolean) -> Boolean,
     val putBool: (key: String, value: Boolean) -> Unit,
+    /** The playback path the service last reported. Snapshot state, so the dialog follows it. */
+    val audioFormat: () -> AudioFormatDetector.AudioFormats?,
 )
 
 @Composable
@@ -82,18 +86,38 @@ fun PlayerDialogs(
 ) {
     if (dialog == null) return
     MaterialTheme(
-        colorScheme = scheme,
+        colorScheme = animateColorScheme(scheme),
         typography = MaterialTheme.typography,
         shapes = MaterialTheme.shapes,
     ) {
         when (dialog) {
             PlayerDialog.Speed -> SpeedDialog(callbacks, onDismiss)
             PlayerDialog.Timer -> TimerDialog(callbacks, onDismiss)
+            PlayerDialog.SignalChain -> SignalChainDialog(callbacks, onDismiss)
         }
     }
 }
 
-
+/** The formats, sample rates and devices the audio goes through, from the file to the output. */
+@Composable
+private fun SignalChainDialog(cb: PlayerDialogCallbacks, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val format = cb.audioFormat()
+    val chain = remember(format) { format?.prettyToString(context) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.audio_signal_chain)) },
+        text = {
+            Text(
+                chain ?: stringResource(R.string.audio_not_initialized),
+                Modifier.verticalScroll(rememberScrollState()),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) }
+        },
+    )
+}
 
 @Composable
 private fun SpeedDialog(cb: PlayerDialogCallbacks, onDismiss: () -> Unit) {

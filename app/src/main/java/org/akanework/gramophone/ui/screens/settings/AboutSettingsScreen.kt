@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ import org.akanework.gramophone.ui.nav.OssLicensesKey
 
 private const val REPOSITORY_URL = "https://github.com/FoedusProgramme/Gramophone"
 private const val TELEGRAM_URL = "https://t.me/FoedusProgramme"
-private const val COPYRIGHT = "\u00A9 2023-2026 United Software"
+private const val COPYRIGHT = "\u00A9 2023-2026 AkaneTan, nift4 and contributors"
 
 private val LICENSE_NOTICE = """
     Copyright (C) 2023-2024 AkaneTan
@@ -123,7 +123,7 @@ fun AboutSettingsScreen(
                     shape,
                     title = stringResource(R.string.settings_contributors),
                     subtitle = stringResource(R.string.settings_contributors_click, contributors),
-                    onClick = { onNavigate(ContributorsKey()) },
+                    onClick = { onNavigate(ContributorsKey) },
                 )
             },
             { shape ->
@@ -182,7 +182,7 @@ fun AboutSettingsScreen(
                         dialog = null
                         // Not under Firebase Test Lab.
                         if (Settings.System.getString(context.contentResolver, "firebase.test.lab") != "true") {
-                            onNavigate(OssLicensesKey())
+                            onNavigate(OssLicensesKey)
                         }
                     },
                 ) { Text(stringResource(android.R.string.ok)) }

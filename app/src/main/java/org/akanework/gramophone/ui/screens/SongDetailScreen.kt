@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -58,7 +58,6 @@ import uk.akane.libphonograph.reader.FlowReader
 /* One song's tags and file facts, as a page of rows under its cover. */
 
 private val COVER_SIZE = 200.dp
-private val COVER_CORNER = 28.dp
 
 @Composable
 fun SongDetailScreen(mediaId: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -86,7 +85,7 @@ fun SongDetailScreen(mediaId: String, onBack: () -> Unit, modifier: Modifier = M
             LibraryCover(
                 uri = metadata.artworkUri,
                 defaultCover = R.drawable.ic_default_cover,
-                cornerRadius = COVER_CORNER,
+                cornerRadius = 28.dp,
                 modifier = Modifier.size(COVER_SIZE),
             )
         }
@@ -118,7 +117,7 @@ fun SongDetailScreen(mediaId: String, onBack: () -> Unit, modifier: Modifier = M
                 (metadata.durationMs?.let { convertDurationToTimeStamp(it) } ?: ""),
             stringResource(R.string.dialog_bitrate) to when {
                 bitrate != null -> stringResource(R.string.bitrate_format, bitrate!! / 1000)
-                looked && item != null && bitrate == null -> stringResource(R.string.bitrate_unknown)
+                looked && bitrate == null -> stringResource(R.string.bitrate_unknown)
                 else -> ""
             },
             stringResource(R.string.dialog_mime) to (current.localConfiguration?.mimeType ?: "(null)"),

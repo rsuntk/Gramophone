@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -17,14 +17,14 @@
 
 package org.akanework.gramophone.ui.components.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -44,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,20 +59,13 @@ import androidx.compose.ui.unit.sp
 
 val LARGE_TITLE_TOP_GAP = 32.dp
 private val LARGE_TITLE_BOTTOM_GAP = 8.dp
-private val LARGE_TITLE_MARGIN_START = 24.dp
-private val LARGE_TITLE_MARGIN_END = 24.dp
 private val LARGE_TITLE_SIZE = 32.sp // textAppearanceHeadlineLarge
-private val LARGE_TITLE_SUBTITLE_SIZE = 18.sp
-private val LARGE_TITLE_SUBTITLE_GAP = 2.dp
 
 /** Fade-through timings when the title changes to another entry. */
 private const val TITLE_FADE_OUT_MS = 90
 private const val TITLE_FADE_IN_MS = 210
 
 private data class LargeTitleText(val key: Any, val title: String, val subtitle: String?)
-
-/** How far the large title travels under the toolbar before the toolbar's own is fully in. */
-private val TITLE_FADE_SPAN = 48.dp
 
 /**
  * The title of the settings pages: displayMedium at 42sp with a 48sp line height, medium weight.
@@ -109,22 +101,21 @@ fun rememberLargeTitleState(): LargeTitleState {
 }
 
 /**
- * 0 while the large title is clear of the toolbar, 1 once its top is [TITLE_FADE_SPAN] under it.
+ * 0 while the large title is clear of the toolbar, 1 once its top is 48dp under it.
  * [titleTopGap] is how far below the toolbar the title's text starts at rest.
  */
 fun Density.barTitleAlpha(scrolled: Float, titleTopGap: Dp = LARGE_TITLE_TOP_GAP): Float =
-    ((scrolled - titleTopGap.toPx()) / TITLE_FADE_SPAN.toPx()).coerceIn(0f, 1f)
+    ((scrolled - titleTopGap.toPx()) / 48.dp.toPx()).coerceIn(0f, 1f)
 
 /**
  * Scroll offset of the grid's [LargeTitle] item relative to the bottom of the toolbar, in px.
- * Positive once the title is under the toolbar, negative while it is below it or overscrolled.
+ * Positive once the title is under the toolbar, negative while it is below it.
  * The offset is only known while the title or the item above it is visible. Otherwise the capped
  * value is returned, so the result stays continuous. [titleIndex] is the title's index in the
  * grid and [leadingPx] the height of the content above it.
  */
 fun largeTitleScroll(
     grid: LazyGridState,
-    overscroll: IosOverscrollState,
     state: LargeTitleState,
     contentTopPx: Float,
     titleIndex: Int = 0,
@@ -136,15 +127,13 @@ fun largeTitleScroll(
         titleIndex - 1 -> grid.firstVisibleItemScrollOffset.toFloat() - leadingPx
         else -> limit
     }
-    return (scrolled - overscroll.offset).coerceAtMost(limit)
+    return scrolled.coerceAtMost(limit)
 }
 
 /**
- * The large title, as the first (full span) item of a page's grid. [gutter] is the grid's own
- * side padding, taken off the margin so the title stays on the 24dp line in grid layouts.
- * [bottomSpacer] leaves room below the title for a row drawn over the content, such as the
- * home's tab row, which then scrolls as if it were part of this item. [subtitle] is an optional
- * smaller second line. [trailing] is placed after the title and scrolls and fades with it.
+ * The large title a page's content starts with: the first thing in a settings page's column, or
+ * a full span item of a detail page's grid (see [largeTitleScroll]'s titleIndex). [subtitle] is an
+ * optional smaller second line. [trailing] is placed after the title and scrolls and fades with it.
  */
 @Composable
 fun LargeTitle(
@@ -152,13 +141,13 @@ fun LargeTitle(
     state: LargeTitleState,
     scrolled: () -> Float,
     modifier: Modifier = Modifier,
+    /** Lines the title wraps to. Ignored with [marquee], which keeps it to one line. */
     maxLines: Int = 1,
-    gutter: Dp = 0.dp,
-    bottomSpacer: Dp = 0.dp,
     subtitle: String? = null,
     /** The text style. */
-    style: TextStyle = textViewStyle(LARGE_TITLE_SIZE, 400, MaterialTheme.colorScheme.onSurface)
-        .copy(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+    style: TextStyle = textViewStyle(
+        LARGE_TITLE_SIZE, 400, MaterialTheme.colorScheme.onSurface, includeFontPadding = false,
+    ),
     topGap: Dp = LARGE_TITLE_TOP_GAP,
     bottomGap: Dp = LARGE_TITLE_BOTTOM_GAP,
     trailing: (@Composable RowScope.() -> Unit)? = null,
@@ -167,51 +156,26 @@ fun LargeTitle(
      * key, are applied without animation.
      */
     contentKey: Any? = null,
-    /** Single-line title and subtitle with a marquee when they overflow. */
+    /** Single-line title and subtitle with a marquee when they overflow, in place of [maxLines]. */
     marquee: Boolean = false,
 ) {
-    val lineModifier = if (marquee) Modifier.fillMaxWidth().basicMarquee() else Modifier.fillMaxWidth()
-    val overflow = if (marquee) TextOverflow.Clip else TextOverflow.Ellipsis
     Row(
         modifier
             .fillMaxWidth()
             .onSizeChanged { state.itemHeight = it.height.toFloat() }
             .padding(
-                start = LARGE_TITLE_MARGIN_START - gutter,
-                end = LARGE_TITLE_MARGIN_END - gutter,
+                start = 24.dp,
+                end = 24.dp,
                 top = topGap,
-                bottom = bottomGap + bottomSpacer,
+                bottom = bottomGap,
             )
             .graphicsLayer { alpha = 1f - barTitleAlpha(scrolled(), topGap) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        @Composable
-        fun Texts(title: String, subtitle: String?) = Column(Modifier.fillMaxWidth()) {
-            BasicText(
-                text = title,
-                style = style,
-                maxLines = if (marquee) 1 else maxLines,
-                overflow = overflow,
-                softWrap = !marquee,
-                modifier = lineModifier,
-            )
-            if (subtitle != null) {
-                BasicText(
-                    text = subtitle,
-                    style = textViewStyle(
-                        LARGE_TITLE_SUBTITLE_SIZE, 400, MaterialTheme.colorScheme.onSurfaceVariant
-                    ).copy(platformStyle = PlatformTextStyle(includeFontPadding = false)),
-                    maxLines = 1,
-                    overflow = overflow,
-                    softWrap = !marquee,
-                    modifier = Modifier
-                        .padding(top = LARGE_TITLE_SUBTITLE_GAP)
-                        .then(lineModifier),
-                )
-            }
-        }
         if (contentKey == null) {
-            Box(Modifier.weight(1f)) { Texts(title, subtitle) }
+            Box(Modifier.weight(1f)) {
+                LargeTitleTexts(title, subtitle, style, maxLines, marquee)
+            }
         } else {
             AnimatedContent(
                 targetState = LargeTitleText(contentKey, title, subtitle),
@@ -224,8 +188,47 @@ fun LargeTitle(
                 contentAlignment = Alignment.CenterStart,
                 modifier = Modifier.weight(1f),
                 label = "large title",
-            ) { Texts(it.title, it.subtitle) }
+            ) { LargeTitleTexts(it.title, it.subtitle, style, maxLines, marquee) }
         }
         trailing?.invoke(this)
+    }
+}
+
+/** The title and the optional subtitle under it, see [LargeTitle]. */
+@Composable
+private fun LargeTitleTexts(
+    title: String,
+    subtitle: String?,
+    style: TextStyle,
+    maxLines: Int,
+    marquee: Boolean,
+) {
+    val lineModifier =
+        if (marquee) Modifier.fillMaxWidth().basicMarquee() else Modifier.fillMaxWidth()
+    val overflow = if (marquee) TextOverflow.Clip else TextOverflow.Ellipsis
+    Column(Modifier.fillMaxWidth()) {
+        BasicText(
+            text = title,
+            style = style,
+            maxLines = if (marquee) 1 else maxLines,
+            overflow = overflow,
+            softWrap = !marquee,
+            modifier = lineModifier,
+        )
+        if (subtitle != null) {
+            BasicText(
+                text = subtitle,
+                style = textViewStyle(
+                    18.sp, 400, MaterialTheme.colorScheme.onSurfaceVariant,
+                    includeFontPadding = false,
+                ),
+                maxLines = 1,
+                overflow = overflow,
+                softWrap = !marquee,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .then(lineModifier),
+            )
+        }
     }
 }

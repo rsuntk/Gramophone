@@ -16,14 +16,12 @@
  */
 package org.akanework.gramophone.ui
 
-import org.akanework.gramophone.logic.showsPause
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.provider.Settings
 import android.system.ErrnoException
 import android.system.Os
 import android.util.Log
@@ -41,7 +39,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -91,6 +89,8 @@ import org.akanework.gramophone.logic.getStringStrict
 import org.akanework.gramophone.logic.hasAudioPermission
 import org.akanework.gramophone.logic.hasScopedStorageV1
 import org.akanework.gramophone.logic.playOrPause
+import org.akanework.gramophone.logic.requiredLibraryPermissions
+import org.akanework.gramophone.logic.showsPause
 import org.akanework.gramophone.logic.ui.BaseActivity
 import org.akanework.gramophone.logic.utils.CalculationUtils.convertDurationToTimeStamp
 import org.akanework.gramophone.logic.utils.Flags
@@ -99,16 +99,17 @@ import org.akanework.gramophone.logic.utils.exoplayer.GramophoneExtractorsFactor
 import org.akanework.gramophone.logic.utils.exoplayer.GramophoneMediaSourceFactory
 import org.akanework.gramophone.logic.utils.exoplayer.GramophoneRenderFactory
 import org.akanework.gramophone.ui.components.compose.rememberBooleanPreference
-import org.akanework.gramophone.ui.components.compose.requiredLibraryPermissions
-import org.akanework.gramophone.ui.intent.PlayIntents
 import org.akanework.gramophone.ui.components.home.LibraryCover
 import org.akanework.gramophone.ui.components.home.rememberDefaultCoverPainter
 import org.akanework.gramophone.ui.components.home.textViewStyle
 import org.akanework.gramophone.ui.components.player.PlayPauseIcon
 import org.akanework.gramophone.ui.components.player.PlayerUtilities
 import org.akanework.gramophone.ui.components.player.SquigglyProgressBar
+import org.akanework.gramophone.ui.intent.PlayIntents
+import org.akanework.gramophone.ui.theme.GramophoneTheme
 import uk.akane.libphonograph.toUriCompat
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 
 /*
  * The audio preview: a small player in a dialog over whatever app handed us a file, with a way
@@ -117,7 +118,6 @@ import java.io.File
 
 private const val TAG = "AudioPreviewActivity"
 private const val POSITION_POLL_MS = 100L
-private val DIALOG_CORNER = 28.dp
 private val COVER_SIZE = 50.dp
 
 /** What the dialog shows, fed by the player's callbacks. */
@@ -217,15 +217,12 @@ class AudioPreviewActivity : BaseActivity() {
             GramophoneTheme {
                 Dialog(onDismissRequest = { finish() }) {
                     Surface(
-                        shape = RoundedCornerShape(DIALOG_CORNER),
+                        shape = RoundedCornerShape(28.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     ) {
                         PreviewContent(
                             state = state,
-                            onPlayPause = {
-                                if (player.playbackState == Player.STATE_ENDED) player.seekToDefaultPosition()
-                                player.playOrPause()
-                            },
+                            onPlayPause = { player.playOrPause() },
                             onSeek = { player.seekTo(it) },
                             onOpen = { openInGramophone() },
                             poll = { syncPosition() },
@@ -286,11 +283,9 @@ class AudioPreviewActivity : BaseActivity() {
             ) {
                 handleIntent(intent)
             } else {
+                // Unlike the other screens, the preview stays open and goes on once granted.
                 askedForPermissionInSettings = true
-                Toast.makeText(this, getString(R.string.grant_audio), Toast.LENGTH_LONG).show()
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                intent.setData("package:$packageName".toUri())
-                startActivity(intent)
+                openAppSettingsForAudio()
             }
         }
     }
@@ -443,7 +438,7 @@ private fun PreviewContent(
     LaunchedEffect(Unit) {
         while (isActive) {
             poll()
-            delay(POSITION_POLL_MS)
+            delay(POSITION_POLL_MS.milliseconds)
         }
     }
     var scrub by remember { mutableStateOf<Float?>(null) }
@@ -527,7 +522,7 @@ private fun PreviewContent(
                 Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.OpenInNew, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(12.dp))
                 Text(stringResourceCompat(R.string.open_in_gramophone), color = scheme.primary, fontSize = 14.sp)
             }

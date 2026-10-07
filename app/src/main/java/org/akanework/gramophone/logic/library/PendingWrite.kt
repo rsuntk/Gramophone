@@ -26,20 +26,31 @@ import uk.akane.libphonograph.manipulator.PlaylistSerializer.Entry
 /**
  * A library write waiting for the user's MediaStore consent. It fully describes what to do once
  * the consent comes back, so the result can be handled even after the process was recreated.
+ *
+ * It is parcelled into the saved state of the screen that asked. Saved state does not survive an
+ * app update (the update force-stops the app), so only the app version that wrote one reads it
+ * back, and the subclasses may change shape between versions.
  */
 sealed interface PendingWrite : Parcelable {
 
-    /** Append [songs] to the playlist at [uri], or create the playlist file [name] if uri is null. */
+    /** Append [songs] to the playlist with MediaStore [id]. */
     @Parcelize
-    data class AddToPlaylist(val songs: List<Entry>, val uri: Uri?, val name: String?) : PendingWrite
+    data class AddToPlaylist(val songs: List<Entry>, val id: Long) : PendingWrite
+
+    /** Create the playlist file at [path], holding [songs]. */
+    @Parcelize
+    data class AddToNewPlaylist(val songs: List<Entry>, val path: String) : PendingWrite
 
     /** Add [songs] to (or remove from) the favorites playlist at [uri], creating it if null. */
     @Parcelize
     data class Favorite(val songs: List<Entry>, val uri: Uri?, val favorite: Boolean) : PendingWrite
 
-    /** The system delete dialog already deletes; only errors are left to report. */
+    /**
+     * The system delete dialog deletes by itself; once the files are gone, the songs at
+     * [unfavorite] (file uris) are taken off the favorites.
+     */
     @Parcelize
-    data object Delete : PendingWrite
+    data class Delete(val unfavorite: List<Uri> = emptyList()) : PendingWrite
 
     /** Move the playlist with MediaStore [id] to [path]. */
     @Parcelize
@@ -51,8 +62,15 @@ sealed interface DeleteResult {
     /** The system has to ask the user; [sender] shows its dialog. */
     class NeedsConsent(val sender: IntentSender, val payload: PendingWrite) : DeleteResult
 
-    /** No system dialog needed: ask in the app first, and call [run] once the user confirmed. */
-    class ConfirmThenRun(val run: suspend () -> Unit) : DeleteResult
+    /**
+     * No system dialog needed: ask in the app first, and pass this to
+     * [LibraryWriteRepository.runConfirmed] once the user confirmed. [run] deletes, then
+     * [payload] is performed like a consented delete.
+     */
+    class ConfirmThenRun(
+        val payload: PendingWrite.Delete,
+        val run: suspend () -> Unit,
+    ) : DeleteResult
 
     class Failed(val error: Throwable) : DeleteResult
 }

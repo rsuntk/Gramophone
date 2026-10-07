@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 
 package org.akanework.gramophone.ui.screens.settings
 
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
@@ -48,7 +47,6 @@ fun PlayerSettingsScreen(
     val defaultProgressBar = rememberBooleanPreference("default_progress_bar", false)
     val audioQualityInfo = rememberBooleanPreference("audio_quality_info", false)
     val cookieCover = rememberBooleanPreference("cookie_cover", false)
-    val dynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     val fullPlayer = buildList<@Composable (Shape) -> Unit> {
         add { shape ->
@@ -80,7 +78,7 @@ fun PlayerSettingsScreen(
                 onCheckedChange = { centeredTitle.set(it) },
             )
         }
-        if (dynamicColor) add { shape ->
+        add { shape ->
             SwitchPreferenceRow(
                 shape,
                 title = stringResource(R.string.settings_content_based_color),
@@ -128,7 +126,7 @@ fun PlayerSettingsScreen(
                 shape,
                 title = stringResource(R.string.settings_lyrics_configuration),
                 subtitle = stringResource(R.string.settings_lyrics_configuration_summary),
-                onClick = { onNavigate(LyricSettingsKey()) },
+                onClick = { onNavigate(LyricSettingsKey) },
             )
         })
     }

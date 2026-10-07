@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2024 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.akanework.gramophone.ui.components.compose.LibraryIconButton
 
 /**
  * `general_decor`: the 48dp row above every list with the item counter on the left and the

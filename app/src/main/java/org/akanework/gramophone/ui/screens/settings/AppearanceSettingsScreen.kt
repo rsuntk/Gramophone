@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 
 package org.akanework.gramophone.ui.screens.settings
 
-import org.akanework.gramophone.ui.theme.AppFont
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +34,7 @@ import org.akanework.gramophone.ui.components.settings.PreferenceSectionHeader
 import org.akanework.gramophone.ui.components.settings.SwitchPreferenceRow
 import org.akanework.gramophone.ui.nav.AppNavKey
 import org.akanework.gramophone.ui.nav.ThemeSettingsKey
+import org.akanework.gramophone.ui.theme.AppFont
 
 @Composable
 fun AppearanceSettingsScreen(
@@ -55,7 +55,7 @@ fun AppearanceSettingsScreen(
                     shape,
                     title = stringResource(R.string.settings_theme_title),
                     subtitle = stringResource(R.string.settings_theme_summary),
-                    onClick = { onNavigate(ThemeSettingsKey()) },
+                    onClick = { onNavigate(ThemeSettingsKey) },
                 )
             }
             // Only shown where the system has the font. Otherwise the platform font is used.

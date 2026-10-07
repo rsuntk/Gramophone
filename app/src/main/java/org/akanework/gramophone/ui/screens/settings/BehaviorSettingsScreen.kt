@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -141,7 +141,7 @@ fun BehaviorSettingsScreen(
                     shape,
                     title = stringResource(R.string.settings_blacklist_folder),
                     subtitle = stringResource(R.string.settings_blacklist_folder_summary),
-                    onClick = { onNavigate(BlacklistKey()) },
+                    onClick = { onNavigate(BlacklistKey) },
                 )
             },
         )

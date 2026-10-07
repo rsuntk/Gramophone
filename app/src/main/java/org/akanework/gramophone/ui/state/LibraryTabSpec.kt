@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2024 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -42,7 +42,6 @@ import org.akanework.gramophone.ui.library.StoreArtistHelper
 import org.akanework.gramophone.ui.library.StoreDateHelper
 import org.akanework.gramophone.ui.library.StoreGenreHelper
 import org.akanework.gramophone.ui.library.StorePlaylistHelper
-import org.akanework.gramophone.ui.state.LibraryTabSpec.Playlists.defaultCoverOf
 import uk.akane.libphonograph.dynamicitem.Favorite
 import uk.akane.libphonograph.dynamicitem.RecentlyAdded
 import uk.akane.libphonograph.items.Album
@@ -110,6 +109,12 @@ sealed class LibraryTabSpec<T : Any>(
         action: LibraryMenuAction,
     )
 
+    /**
+     * Whether playing the song that is already playing opens the full player. The search leaves
+     * it closed, so the results stay in view.
+     */
+    val opensPlayerIfCurrent: Boolean get() = adapterType != LibraryAdapterTypes.SEARCH
+
     /** Title of a queue created from this list, named the way [onClick] names it. */
     fun queueTitleOf(env: AppActionEnv, state: LibraryTabState<T>): String =
         state.queueTitleOverride ?: env.getString(queueTitle)
@@ -149,7 +154,8 @@ sealed class LibraryTabSpec<T : Any>(
         ) {
             when (action) {
                 LibraryMenuAction.Play -> LibraryActions.playSong(
-                    env, state.items, position, queueTitleOf(env, state)
+                    env, state.items, position, queueTitleOf(env, state),
+                    openPlayerIfCurrent = state.spec.opensPlayerIfCurrent,
                 )
                 LibraryMenuAction.PlayNext -> LibraryActions.playNext(env, listOf(item))
                 LibraryMenuAction.AddToQueue -> LibraryActions.addToQueue(env, listOf(item))
@@ -192,7 +198,7 @@ sealed class LibraryTabSpec<T : Any>(
             env: AppActionEnv, state: LibraryTabState<MediaItem>, item: MediaItem, position: Int
         ) {
             LibraryActions.playSong(
-                env, state.items, position, state.queueTitleOverride ?: "/"
+                env, state.items, position, state.queueTitleOverride ?: FolderPage.ROOT_TITLE
             )
         }
 
@@ -467,7 +473,10 @@ sealed class LibraryTabSpec<T : Any>(
         override fun onClick(
             env: AppActionEnv, state: LibraryTabState<MediaItem>, item: MediaItem, position: Int
         ) {
-            LibraryActions.playSong(env, state.items, position, state.queueTitleOverride ?: "")
+            LibraryActions.playSong(
+                env, state.items, position, state.queueTitleOverride ?: "",
+                openPlayerIfCurrent = opensPlayerIfCurrent,
+            )
         }
 
         override fun onMenuAction(

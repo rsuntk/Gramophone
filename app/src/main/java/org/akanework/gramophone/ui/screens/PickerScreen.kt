@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -32,8 +32,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -42,19 +40,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import org.akanework.gramophone.ui.components.compose.BackButton
 import org.akanework.gramophone.ui.components.home.GLASS_BAR_HEIGHT
 import org.akanework.gramophone.ui.components.home.GlassTitleBar
 import org.akanework.gramophone.ui.components.home.LIBRARY_GROUP_CORNER
 import org.akanework.gramophone.ui.components.home.LIBRARY_ITEM_GAP
 import org.akanework.gramophone.ui.components.home.LIST_HEIGHT
 import org.akanework.gramophone.ui.components.home.LibraryFastScroller
-import org.akanework.gramophone.ui.components.home.LibraryIconButton
 import org.akanework.gramophone.ui.components.home.LibraryListRow
-import org.akanework.gramophone.ui.components.home.iosOverscroll
 import org.akanework.gramophone.ui.components.home.libraryItemCard
 import org.akanework.gramophone.ui.components.home.libraryItemShape
-import org.akanework.gramophone.ui.components.home.rememberIosFlingBehavior
-import org.akanework.gramophone.ui.components.home.rememberIosOverscrollState
 
 /** One thing to pick, as the picker activities list it. */
 class PickerEntry<T : Any>(
@@ -79,7 +74,6 @@ fun <T : Any> PickerScreen(
 ) {
     val hazeState = remember { HazeState() }
     val gridState = rememberLazyGridState()
-    val overscroll = rememberIosOverscrollState()
     val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
     val barTopPadding = insets.calculateTopPadding() + GLASS_BAR_HEIGHT
     val density = LocalDensity.current
@@ -91,11 +85,9 @@ fun <T : Any> PickerScreen(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(1),
                 state = gridState,
-                modifier = Modifier.fillMaxSize().iosOverscroll(overscroll),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = libraryContentPadding(top = barTopPadding),
                 verticalArrangement = Arrangement.spacedBy(LIBRARY_ITEM_GAP),
-                flingBehavior = rememberIosFlingBehavior(gridState),
-                overscrollEffect = null,
             ) {
                 itemsIndexed(entries) { index, entry ->
                     LibraryListRow(
@@ -132,14 +124,7 @@ fun <T : Any> PickerScreen(
             scrolled = { Float.MAX_VALUE },
             toolbarPaddingStart = 4.dp,
             titlePaddingStart = 4.dp,
-            navigationIcon = {
-                LibraryIconButton(
-                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                    iconSize = 24.dp,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    onClick = onBack,
-                )
-            },
+            navigationIcon = { BackButton(onBack) },
         )
     }
 }

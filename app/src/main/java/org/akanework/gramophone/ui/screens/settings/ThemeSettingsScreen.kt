@@ -17,6 +17,8 @@
 package org.akanework.gramophone.ui.screens.settings
 
 import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -63,12 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
-import com.materialkolor.hct.Hct
-import com.materialkolor.ktx.toColor
-import com.materialkolor.ktx.toHct
 import org.akanework.gramophone.R
-import org.akanework.gramophone.ui.LocalDarkTheme
-import org.akanework.gramophone.ui.THEME_ANIMATION_MS
 import org.akanework.gramophone.ui.components.compose.rememberBooleanPreference
 import org.akanework.gramophone.ui.components.compose.rememberIntPreference
 import org.akanework.gramophone.ui.components.compose.rememberStringPreference
@@ -79,43 +76,33 @@ import org.akanework.gramophone.ui.components.settings.PreferenceRow
 import org.akanework.gramophone.ui.components.settings.PreferenceScreen
 import org.akanework.gramophone.ui.components.settings.PreferenceSectionHeader
 import org.akanework.gramophone.ui.components.settings.SwitchPreferenceRow
-import org.akanework.gramophone.ui.findActivity
+import org.akanework.gramophone.ui.theme.ChromaTone
 import org.akanework.gramophone.ui.theme.DEFAULT_SEED_COLOR
+import org.akanework.gramophone.ui.theme.LocalDarkTheme
 import org.akanework.gramophone.ui.theme.PREF_PALETTE_STYLE
 import org.akanework.gramophone.ui.theme.PREF_PURE_DARK
 import org.akanework.gramophone.ui.theme.PREF_SEED_COLOR
 import org.akanework.gramophone.ui.theme.PREF_THEME_MODE
 import org.akanework.gramophone.ui.theme.PREF_WALLPAPER_COLOR
 import org.akanework.gramophone.ui.theme.PRESET_SEED_COLORS
+import org.akanework.gramophone.ui.theme.THEME_ANIMATION_MS
 import org.akanework.gramophone.ui.theme.ThemeMode
 import org.akanework.gramophone.ui.theme.activeSeedColor
 import org.akanework.gramophone.ui.theme.applyToSystem
+import org.akanework.gramophone.ui.theme.hue
 import org.akanework.gramophone.ui.theme.rememberThemeSettings
 import org.akanework.gramophone.ui.theme.supportsWallpaperColor
 import org.akanework.gramophone.ui.theme.themeModeOf
 
-private val PAGE_MARGIN = 16.dp
-private val SWATCH_SIZE = 40.dp
-private val SWATCH_GAP = 12.dp
-private val SWATCH_CHECK_SIZE = 20.dp
-private val SWATCHES_TOP_GAP = 12.dp
-private val HUE_TRACK_HEIGHT = 16.dp
-private const val SEED_CHROMA = 48.0
-private const val SEED_TONE = 40.0
+/** The custom seed's chroma and tone, in the hue picked. */
+private val SEED = ChromaTone(chroma = 48.0, tone = 40.0)
 private const val HUE_STOPS = 12
 private const val HUE_MAX = 360f
-private val STYLE_CARD_WIDTH = 84.dp
-private val STYLE_BAND_HEIGHT = 34.dp
-private val STYLE_BAND_GAP = 2.dp
-private val STYLE_CARD_CORNER = 16.dp
-private val STYLE_CARD_BORDER = 3.dp
-private val STYLE_CARD_GAP = 12.dp
-private val STYLE_LABEL_GAP = 8.dp
-private val STYLE_ROW_BOTTOM_GAP = 24.dp
 
 @Composable
 fun ThemeSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val activity = LocalActivity.current
     val themeMode = rememberStringPreference(PREF_THEME_MODE, ThemeMode.System.code)
     val pureDark = rememberBooleanPreference(PREF_PURE_DARK, false)
     val wallpaperColor = rememberBooleanPreference(PREF_WALLPAPER_COLOR, true)
@@ -138,7 +125,7 @@ fun ThemeSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         themeMode.set(code)
                         themeModeOf(code).applyToSystem(context)
                         // Before Android 12 the activity carries the night override itself.
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) context.findActivity()?.recreate()
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) (activity as? ComponentActivity)?.recreate()
                     },
                 )
             },
@@ -181,7 +168,7 @@ fun ThemeSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             selected = settings.style,
             onSelect = { paletteStyle.set(it.name) },
         )
-        Spacer(Modifier.height(STYLE_ROW_BOTTOM_GAP))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -194,21 +181,21 @@ private fun SeedColorRow(shape: Shape, enabled: Boolean, selected: Color, onSele
                 stringResource(R.string.settings_theme_custom_color),
                 subtitle = stringResource(R.string.settings_theme_custom_color_summary),
             )
-            Spacer(Modifier.height(SWATCHES_TOP_GAP))
+            Spacer(Modifier.height(12.dp))
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(SWATCH_GAP),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 PRESET_SEED_COLORS.forEach { color ->
                     ColorSwatch(color, selected = color == selected, enabled = enabled) { onSelect(color) }
                 }
             }
-            var hue by remember(selected) { mutableFloatStateOf(selected.toHct().hue.toFloat()) }
+            var hue by remember(selected) { mutableFloatStateOf(selected.hue.toFloat()) }
             HueSlider(
                 hue = hue,
                 enabled = enabled,
                 onHueChange = { hue = it },
-                onHueChangeFinished = { onSelect(Hct.from(hue.toDouble(), SEED_CHROMA, SEED_TONE).toColor()) },
+                onHueChangeFinished = { onSelect(SEED.inHue(hue.toDouble())) },
             )
         }
     }
@@ -218,7 +205,7 @@ private fun SeedColorRow(shape: Shape, enabled: Boolean, selected: Color, onSele
 private fun ColorSwatch(color: Color, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(SWATCH_SIZE)
+            .size(40.dp)
             .clip(CircleShape)
             .background(color)
             .clickable(enabled = enabled, onClick = onClick),
@@ -229,7 +216,7 @@ private fun ColorSwatch(color: Color, selected: Boolean, enabled: Boolean, onCli
                 Icons.Outlined.Check,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(SWATCH_CHECK_SIZE),
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -244,7 +231,7 @@ private fun HueSlider(
 ) {
     val brush = remember {
         Brush.horizontalGradient(
-            (0..HUE_STOPS).map { Hct.from(it * HUE_MAX.toDouble() / HUE_STOPS, SEED_CHROMA, SEED_TONE).toColor() }
+            (0..HUE_STOPS).map { SEED.inHue(it * HUE_MAX.toDouble() / HUE_STOPS) }
         )
     }
     Slider(
@@ -257,7 +244,7 @@ private fun HueSlider(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(HUE_TRACK_HEIGHT)
+                    .height(16.dp)
                     .clip(CircleShape)
                     .background(brush)
             )
@@ -275,8 +262,8 @@ private fun PaletteStyleRow(seed: Color, dark: Boolean, selected: PaletteStyle, 
         Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = PAGE_MARGIN),
-        horizontalArrangement = Arrangement.spacedBy(STYLE_CARD_GAP),
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         PaletteStyle.entries.forEach { style ->
             PaletteStyleCard(style, schemes.getValue(style), selected = style == selected) { onSelect(style) }
@@ -287,14 +274,14 @@ private fun PaletteStyleRow(seed: Color, dark: Boolean, selected: PaletteStyle, 
 @Composable
 private fun PaletteStyleCard(style: PaletteStyle, scheme: ColorScheme, selected: Boolean, onClick: () -> Unit) {
     val accent = MaterialTheme.colorScheme.primary
-    val shape = RoundedCornerShape(STYLE_CARD_CORNER)
+    val shape = RoundedCornerShape(16.dp)
     val border by animateColorAsState(if (selected) accent else Color.Transparent, tween(THEME_ANIMATION_MS))
     val label by animateColorAsState(
         if (selected) accent else MaterialTheme.colorScheme.onSurface, tween(THEME_ANIMATION_MS),
     )
     Column(
         Modifier
-            .width(STYLE_CARD_WIDTH)
+            .width(84.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -303,18 +290,18 @@ private fun PaletteStyleCard(style: PaletteStyle, scheme: ColorScheme, selected:
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(
-            Modifier.border(STYLE_CARD_BORDER, border, shape).clip(shape),
-            verticalArrangement = Arrangement.spacedBy(STYLE_BAND_GAP),
+            Modifier.border(3.dp, border, shape).clip(shape),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             listOf(
                 scheme.primary, scheme.secondary, scheme.tertiary,
                 scheme.primaryContainer, scheme.secondaryContainer, scheme.tertiaryContainer,
             ).forEach { band ->
                 val color by animateColorAsState(band, tween(THEME_ANIMATION_MS))
-                Box(Modifier.fillMaxWidth().height(STYLE_BAND_HEIGHT).background(color))
+                Box(Modifier.fillMaxWidth().height(34.dp).background(color))
             }
         }
-        Spacer(Modifier.height(STYLE_LABEL_GAP))
+        Spacer(Modifier.height(8.dp))
         Text(
             style.name,
             style = MaterialTheme.typography.bodyMedium,

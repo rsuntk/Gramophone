@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -30,9 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import org.akanework.gramophone.R
 import org.akanework.gramophone.ui.components.settings.NavigationPreferenceRow
-import org.akanework.gramophone.ui.components.settings.PREFERENCE_GROUP_GAP
 import org.akanework.gramophone.ui.components.settings.PreferenceGroup
 import org.akanework.gramophone.ui.components.settings.PreferenceScreen
 import org.akanework.gramophone.ui.components.settings.SECTION_HEADER_TOP_GAP
@@ -55,16 +55,16 @@ private class SettingsPage(
 /** The pages in their groups: how it looks, how it behaves, what it is. */
 private val PAGE_GROUPS = listOf(
     listOf(
-        SettingsPage(Icons.Filled.Palette, R.string.settings_category_appearance, R.string.settings_appearance_summary) { AppearanceSettingsKey() },
-        SettingsPage(Icons.Filled.PlayArrow, R.string.settings_player_ui, R.string.settings_player_ui_summary) { PlayerSettingsKey() },
+        SettingsPage(Icons.Filled.Palette, R.string.settings_category_appearance, R.string.settings_appearance_summary) { AppearanceSettingsKey },
+        SettingsPage(Icons.Filled.PlayArrow, R.string.settings_player_ui, R.string.settings_player_ui_summary) { PlayerSettingsKey },
     ),
     listOf(
-        SettingsPage(Icons.Filled.PrecisionManufacturing, R.string.settings_category_behavior, R.string.settings_behavior_summary) { BehaviorSettingsKey() },
-        SettingsPage(Icons.Filled.Headphones, R.string.settings_player_options, R.string.settings_player_options_summary) { AudioSettingsKey() },
-        SettingsPage(Icons.Filled.Science, R.string.settings_experimental_settings, R.string.settings_experimental_settings_summary) { ExperimentalSettingsKey() },
+        SettingsPage(Icons.Filled.PrecisionManufacturing, R.string.settings_category_behavior, R.string.settings_behavior_summary) { BehaviorSettingsKey },
+        SettingsPage(Icons.Filled.Headphones, R.string.settings_player_options, R.string.settings_player_options_summary) { AudioSettingsKey },
+        SettingsPage(Icons.Filled.Science, R.string.settings_experimental_settings, R.string.settings_experimental_settings_summary) { ExperimentalSettingsKey },
     ),
     listOf(
-        SettingsPage(Icons.Filled.Info, R.string.settings_about_app, R.string.settings_about_gramophone) { AboutSettingsKey() },
+        SettingsPage(Icons.Filled.Info, R.string.settings_about_app, R.string.settings_about_gramophone) { AboutSettingsKey },
     ),
 )
 
@@ -79,7 +79,7 @@ fun MainSettingsScreen(
         // No headers here: keep their gap so the first row sits where a header's text would.
         Spacer(Modifier.height(SECTION_HEADER_TOP_GAP))
         PAGE_GROUPS.forEachIndexed { index, pages ->
-            if (index > 0) Spacer(Modifier.height(PREFERENCE_GROUP_GAP))
+            if (index > 0) Spacer(Modifier.height(16.dp))
             PreferenceGroup(pages) { page, shape ->
                 NavigationPreferenceRow(
                     shape,

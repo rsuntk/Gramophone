@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -37,15 +37,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.akanework.gramophone.ui.components.compose.LibraryIconButton
 
 /*
  * A song row that can be dragged by its handle and removed by its button: the playlist editor's
  * and the queue's rows. Same height and cover as the compact library row.
  */
 
+private val ROW_PADDING = 6.dp
 private val HANDLE_SLOT = 40.dp
+private val ROW_ICON_SIZE = 24.dp
 private val COVER_SIZE = 50.dp
-private val TEXT_MARGIN = 18.dp
+
+/** How far in from the row's start its drag handle's icon is, and from its end the remove icon. */
+val EDITABLE_ROW_ICON_START = ROW_PADDING + (HANDLE_SLOT - ROW_ICON_SIZE) / 2
+val EDITABLE_ROW_ICON_END = ROW_PADDING + (48.dp - ROW_ICON_SIZE) / 2
 
 @Composable
 fun EditableSongRow(
@@ -70,7 +76,7 @@ fun EditableSongRow(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(start = 6.dp, end = 6.dp),
+            .padding(start = ROW_PADDING, end = ROW_PADDING),
         verticalAlignment = FloorCenterVertically,
     ) {
         if (showControls) {
@@ -82,7 +88,7 @@ fun EditableSongRow(
                     imageVector = Icons.Outlined.DragHandle,
                     contentDescription = null,
                     tint = colors.icon,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(ROW_ICON_SIZE),
                 )
             }
         }
@@ -92,7 +98,7 @@ fun EditableSongRow(
             cornerRadius = LIST_ROUND_CORNER_SIZE,
             modifier = Modifier.padding(start = if (showControls) 0.dp else 18.dp).size(COVER_SIZE),
         )
-        Column(Modifier.weight(1f).padding(start = TEXT_MARGIN)) {
+        Column(Modifier.weight(1f).padding(start = 18.dp)) {
             SingleLineText(
                 title, 17.sp, 400, colors.title,
                 Modifier.fillMaxWidth(),
@@ -105,7 +111,7 @@ fun EditableSongRow(
         if (showControls) {
             LibraryIconButton(
                 icon = Icons.Outlined.Close,
-                iconSize = 24.dp,
+                iconSize = ROW_ICON_SIZE,
                 tint = colors.icon,
                 onClick = onRemove,
             )

@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -27,26 +27,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -58,58 +53,38 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import org.akanework.gramophone.ui.LocalCardSurface
 import org.akanework.gramophone.ui.components.home.GLASS_BAR_HEIGHT
 import org.akanework.gramophone.ui.components.home.GlassTitleBar
 import org.akanework.gramophone.ui.components.home.LargeTitle
-import org.akanework.gramophone.ui.components.home.LibraryIconButton
 import org.akanework.gramophone.ui.components.home.PAGE_TITLE_TOP_GAP
 import org.akanework.gramophone.ui.components.home.PageTitleStyle
-import org.akanework.gramophone.ui.components.home.iosOverscroll
-import org.akanework.gramophone.ui.components.home.rememberIosFlingBehavior
-import org.akanework.gramophone.ui.components.home.rememberIosOverscrollState
 import org.akanework.gramophone.ui.components.home.rememberLargeTitleState
+import org.akanework.gramophone.ui.theme.LocalCardSurface
 
 /*
  * A page of grouped settings,
  * each group is one rounded block of rows, with the block's own big corners at its two ends and
- * small ones where the rows meet, under the same glass bar, large title and iOS scroll physics as
- * the rest of the app.
+ * small ones where the rows meet, under the same glass bar and large title as the rest of the
+ * app.
  */
 
 private val GROUP_MARGIN = 16.dp
 private val GROUP_CORNER = 24.dp
 private val ROW_CORNER = 4.dp
-private val ROW_GAP = 4.dp
 private val ROW_PADDING = 16.dp
-
-/*
- * The header: the page title starts [PAGE_TITLE_TOP_GAP] under the bar and the first section
- * [TITLE_TO_CONTENT_GAP] under the title. The back button sits at the bar's own 4dp plus 6dp,
- * which puts the arrow's strokes on the 24dp text margin. The bar's title follows it at 4dp.
- */
-/** Under the title, before the first section header or group. */
-private val TITLE_TO_CONTENT_GAP = 4.dp
-private val BACK_BUTTON_INSET = 4.dp + 6.dp
-private val BAR_TITLE_INSET = 4.dp
-
-
-/** The top-level pages' marks: a tinted disc, then the text. */
-private val ICON_CONTAINER_SIZE = 40.dp
-private val ICON_SIZE = 24.dp
-private val ICON_GAP = 16.dp
 
 /** Material's disabled content alpha. */
 const val PREFERENCE_DISABLED_ALPHA = 0.38f
 
 /**
- * A page of grouped settings: the large title the bar takes over as it scrolls under, iOS scroll
- * physics, and the same frosted bar as the rest of the app. [content] emits into the scrolling
+ * A page of grouped settings: the large title the bar takes over as it scrolls under, and the
+ * same frosted bar as the rest of the app. [content] emits into the scrolling
  * column, usually [PreferenceSectionHeader]s and [PreferenceGroup]s.
  */
 @Composable
@@ -122,66 +97,57 @@ fun PreferenceScreen(
 ) {
     val hazeState = remember { HazeState() }
     val scrollState = rememberScrollState()
-    val overscroll = rememberIosOverscrollState()
     val titleState = rememberLargeTitleState()
-    val topInset = WindowInsets.systemBars.union(WindowInsets.displayCutout)
-        .asPaddingValues().calculateTopPadding()
-    val barTopPadding = topInset + GLASS_BAR_HEIGHT
-    // How far the content has moved from rest, following the rubber band like the library pages.
-    val scrolled = { scrollState.value.toFloat() - overscroll.offset }
+    val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
+    val layoutDirection = LocalLayoutDirection.current
+    // How far the content has moved from rest.
+    val scrolled = { scrollState.value.toFloat() }
     // The same ground as the home, with the same cards on it.
     val background = MaterialTheme.colorScheme.surfaceContainerLow
-    Box(modifier.fillMaxSize().background(background)) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(background)
+    ) {
         // The content sits behind the frosted bar as its blur source, padded clear of it at the
         // top. The background is painted inside the source so the recorded layer is opaque.
-        Box(Modifier.fillMaxSize().hazeSource(hazeState).background(background)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .hazeSource(hazeState)
+                .background(background)
+        ) {
             Column(
                 Modifier
                     .fillMaxSize()
-                    // Before verticalScroll so this sits above it in the nested scroll chain.
-                    .iosOverscroll(overscroll)
-                    .verticalScroll(
-                        state = scrollState,
-                        flingBehavior = rememberIosFlingBehavior(scrollState),
-                        overscrollEffect = null,
+                    .verticalScroll(scrollState)
+                    .padding(
+                        start = insets.calculateStartPadding(layoutDirection),
+                        top = insets.calculateTopPadding() + GLASS_BAR_HEIGHT,
+                        end = insets.calculateEndPadding(layoutDirection),
+                        bottom = insets.calculateBottomPadding() + 24.dp,
                     )
-                    // Sideways, a notch sits at one side, and the rows keep clear of it.
-                    .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)),
             ) {
-                Spacer(Modifier.height(barTopPadding))
                 LargeTitle(
                     title, titleState, scrolled,
                     maxLines = 2,
                     style = PageTitleStyle,
                     topGap = PAGE_TITLE_TOP_GAP,
-                    bottomGap = TITLE_TO_CONTENT_GAP,
+                    bottomGap = 4.dp,
                 )
                 content()
-                Spacer(Modifier.height(24.dp).navigationBarsPadding())
             }
         }
         GlassTitleBar(
             hazeState = hazeState,
             title = title,
             scrolled = scrolled,
-            toolbarPaddingStart = BACK_BUTTON_INSET,
-            titlePaddingStart = BAR_TITLE_INSET,
+            onBack = onBack,
             titleTopGap = PAGE_TITLE_TOP_GAP,
-            navigationIcon = {
-                LibraryIconButton(
-                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                    iconSize = 24.dp,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    onClick = onBack,
-                )
-            },
             actions = actions,
         )
     }
 }
-
-/** Between two groups with no header between them. */
-val PREFERENCE_GROUP_GAP = 16.dp
 
 /**
  * What a section header keeps above itself. A page whose first group has no header puts the
@@ -221,7 +187,7 @@ fun PreferenceGroup(count: Int, row: @Composable (index: Int, shape: Shape) -> U
     if (count <= 0) return
     Column(
         modifier = Modifier.padding(horizontal = GROUP_MARGIN),
-        verticalArrangement = Arrangement.spacedBy(ROW_GAP),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         repeat(count) { index -> row(index, preferenceRowShape(index, count)) }
     }
@@ -295,7 +261,7 @@ fun PreferenceLabels(title: String, modifier: Modifier = Modifier, subtitle: Str
 fun PreferenceIcon(icon: ImageVector) {
     Box(
         modifier = Modifier
-            .size(ICON_CONTAINER_SIZE)
+            .size(40.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
@@ -303,9 +269,9 @@ fun PreferenceIcon(icon: ImageVector) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(ICON_SIZE),
+            modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.primary,
         )
     }
-    Spacer(Modifier.width(ICON_GAP))
+    Spacer(Modifier.width(16.dp))
 }

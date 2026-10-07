@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -17,21 +17,53 @@
 
 package org.akanework.gramophone.ui.nav
 
-/** A settings page. Plain classes like the library keys, so nav3 never conflates two pushes. */
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+/**
+ * A settings page. Unlike the keys with arguments these carry no `uid` (see [AppNavKey]): the
+ * settings are only opened from the home, and each page only from its parent, so none can be on
+ * the back stack twice. [NavViewModel.navigateTo] drops a second push of the top one.
+ */
 sealed interface SettingsKey : AppNavKey {
     override val wantsPlayer: Boolean get() = false
 }
 
-class MainSettingsKey : SettingsKey
-class AppearanceSettingsKey : SettingsKey
-class ThemeSettingsKey : SettingsKey
-class PlayerSettingsKey : SettingsKey
-class LyricSettingsKey : SettingsKey
-class BehaviorSettingsKey : SettingsKey
-class AudioSettingsKey : SettingsKey
-class ReplayGainSettingsKey : SettingsKey
-class ExperimentalSettingsKey : SettingsKey
-class AboutSettingsKey : SettingsKey
-class BlacklistKey : SettingsKey
-class ContributorsKey : SettingsKey
-class OssLicensesKey : SettingsKey
+@Parcelize
+data object MainSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object AppearanceSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object ThemeSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object PlayerSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object LyricSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object BehaviorSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object AudioSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object ReplayGainSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object ExperimentalSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object AboutSettingsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object BlacklistKey : SettingsKey, Parcelable
+
+@Parcelize
+data object ContributorsKey : SettingsKey, Parcelable
+
+@Parcelize
+data object OssLicensesKey : SettingsKey, Parcelable

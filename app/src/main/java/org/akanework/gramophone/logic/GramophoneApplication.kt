@@ -22,7 +22,7 @@ import android.app.Application
 import android.app.NotificationManager
 import android.os.Build
 import androidx.compose.runtime.Composer
-import androidx.compose.runtime.ExperimentalComposeRuntimeApi
+import androidx.compose.runtime.tooling.ComposeStackTraceMode
 import androidx.media3.session.DefaultMediaNotificationProvider
 import coil3.ImageLoader
 import coil3.PlatformContext
@@ -69,8 +69,7 @@ class GramophoneApplication : Application(), SingletonImageLoader.Factory {
         }
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")
-            @OptIn(ExperimentalComposeRuntimeApi::class)
-            Composer.setDiagnosticStackTraceEnabled(true)
+            Composer.setDiagnosticStackTraceMode(ComposeStackTraceMode.SourceInformation)
         }
     }
 
@@ -87,10 +86,11 @@ class GramophoneApplication : Application(), SingletonImageLoader.Factory {
         StrictModeInitializer.install()
         android.util.Log.d(TAG, "GramophoneApplication.onCreate()")
         LoggingInitializer.install()
-        // Resolve eagerly where they used to be constructed: both register observers/receivers in
-        // their constructors, so keep the same start-up timing as before the Koin migration.
-        // FlowReader pulls in SettingsRepository, which migrates and loads the filter preferences
-        // on ApplicationScope.
+        // Created at start-up rather than on first use, as both register observers/receivers in
+        // their constructors; and here rather than with createdAtStart, which would create them
+        // inside startKoin, before StrictMode and logging are installed. FlowReader pulls in
+        // LibraryFilterSettings, which migrates and loads the filter preferences on
+        // ApplicationScope.
         get<UacManager>()
         get<FlowReader>()
         // Set application theme when launching.

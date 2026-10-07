@@ -17,7 +17,6 @@
 
 package org.akanework.gramophone
 
-import android.app.Application
 import android.app.SearchManager
 import android.content.ContentResolver
 import android.content.Intent
@@ -40,14 +39,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import uk.akane.libphonograph.manipulator.PlaylistSerializer.Entry
 
 /**
- * Locks in what the old `MainActivity.doPlayFromIntent` did for each kind of intent: which
- * actions come out, in which order, and when the fallback autoplay is added.
+ * What [PlayIntentParser] makes of each kind of intent: which actions come out, in which order,
+ * and when the fallback autoplay is added.
  */
-@Config(application = Application::class)
 @RunWith(RobolectricTestRunner::class)
 class PlayIntentParserTest {
 
@@ -303,7 +300,26 @@ class PlayIntentParserTest {
     }
 
     @Test
-    fun actionsKeepTheOldOrder() {
+    fun launchFromRecentsOnlyNavigates() {
+        fun Intent.fromHistory() = addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)
+        val entry = Entry(listOf(Uri.parse("file:///sdcard/Music/a.mp3")))
+        assertEquals(emptyList<PlayIntentAction>(), parse(Intent().putExtra("AutoStartId", "3")
+            .putExtra("FavoriteEntry", entry).putExtra("AutoStartFgs", true).fromHistory()))
+        assertEquals(emptyList<PlayIntentAction>(),
+            parse(playFromSearch(null, SearchManager.QUERY to "q").fromHistory()))
+        assertEquals(emptyList<PlayIntentAction>(),
+            parse(Intent("org.akanework.gramophone.action.SHUFFLE").fromHistory()))
+        assertEquals(listOf(OpenPlaylist(9L)),
+            parse(Intent(Intent.ACTION_VIEW).putExtra("playlist", "9").fromHistory()))
+        assertEquals(listOf(OpenSearch("abc")), parse(Intent(Intent.ACTION_SEARCH)
+            .putExtra(SearchManager.QUERY, "abc").fromHistory()))
+        // Play on launch applies to a launch from Recents too.
+        assertEquals(listOf(Autoplay), parse(Intent("org.akanework.gramophone.action.SHUFFLE")
+            .fromHistory(), autoplay = true))
+    }
+
+    @Test
+    fun actionsComeInAFixedOrder() {
         val entry = Entry(listOf(Uri.parse("file:///sdcard/Music/a.mp3")))
         val intent = Intent(Intent.ACTION_VIEW)
             .putExtra("AutoStartId", "3")

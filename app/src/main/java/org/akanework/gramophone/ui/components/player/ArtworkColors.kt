@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import coil3.BitmapImage
 import coil3.PlatformContext
@@ -41,24 +40,27 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import com.materialkolor.PaletteStyle
-import com.materialkolor.ktx.harmonize
 import com.materialkolor.ktx.quantize
 import com.materialkolor.quantize.QuantizerCelebi
 import com.materialkolor.rememberDynamicColorScheme
 import com.materialkolor.score.Score
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import org.akanework.gramophone.logic.ApplicationScope
-import org.koin.compose.koinInject
-import kotlinx.coroutines.async
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import org.akanework.gramophone.logic.ApplicationScope
 import org.akanework.gramophone.ui.components.compose.rememberBooleanPreference
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.ARTWORK_QUANTIZE_MAX
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.ARTWORK_SEED_SIZE
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.ARTWORK_SEED_SIZE_ACCURATE
-import org.akanework.gramophone.ui.tonal
+import org.akanework.gramophone.ui.theme.ChromaTone
+import org.akanework.gramophone.ui.theme.PREF_PURE_DARK
+import org.akanework.gramophone.ui.theme.harmonizeBy
+import org.akanework.gramophone.ui.theme.pureDark
+import org.akanework.gramophone.ui.theme.tonal
+import org.koin.compose.koinInject
 
 /**
  * The colour scheme seeded from a song's cover, as the player and the lists paint it. Falls back
@@ -77,8 +79,13 @@ private fun rememberArtworkColorScheme(artworkUri: Uri?, accurate: Boolean): Col
     val seed = rememberArtworkSeed(artworkUri, accurate)
     // Match the applied theme's light/dark rather than the raw system setting.
     val isDark = theme.surface.luminance() < 0.5f
-    return if (seed == null) theme
-    else rememberDynamicColorScheme(seedColor = seed, isDark = isDark, style = PaletteStyle.TonalSpot)
+    val pureDarkOn = rememberBooleanPreference(PREF_PURE_DARK, false).value
+    if (seed == null) return theme
+    val scheme = rememberDynamicColorScheme(
+        seedColor = seed, isDark = isDark, style = PaletteStyle.TonalSpot,
+    )
+    // The cover only tints the accents under pure dark; the surfaces stay black like the app's.
+    return if (isDark && pureDarkOn) remember(scheme) { scheme.pureDark() } else scheme
 }
 
 /**
@@ -99,35 +106,35 @@ data class NowPlayingColors(
 
 /** By night the cover scheme's surface is nearly black and its primary container dull, so the
  *  bar and its progress take the cover's hue at tones of their own. */
-private const val DARK_BAR_CHROMA = 14.0
-private const val DARK_BAR_TONE = 12.0
-private const val DARK_BAR_FILL_CHROMA = 32.0
-private const val DARK_BAR_FILL_TONE = 35.0
+private val DARK_BAR = ChromaTone(chroma = 14.0, tone = 12.0)
+private val DARK_BAR_FILL = ChromaTone(chroma = 32.0, tone = 35.0)
 private const val ON_FILL_VARIANT_ALPHA = 0.8f
 
 /**
  * [harmony] is how far the colours lean towards [appPrimary], from 0 (the cover's own, on a page
  * already themed from a cover) to 1 (fully harmonized, among the app's own surfaces).
  */
-fun nowPlayingColors(cover: ColorScheme, appPrimary: Color, harmony: Float = 1f): NowPlayingColors {
-    val isDark = cover.surface.luminance() < 0.5f
-    val primary = cover.primary.harmonizeBy(appPrimary, harmony)
-    val onFill = cover.onPrimaryContainer.harmonizeBy(appPrimary, harmony)
+fun nowPlayingColors(cover: ColorScheme, appPrimary: Color, harmony: Float = 1f): NowPlayingColors =
+    nowPlayingColors(appPrimary, harmony) { cover.it() }
+
+/** [nowPlayingColors] of the scheme [cover] looks roles up in, like [AnimatedColorScheme.color]. */
+fun nowPlayingColors(
+    appPrimary: Color,
+    harmony: Float,
+    cover: (ColorScheme.() -> Color) -> Color,
+): NowPlayingColors {
+    val surface = cover { surface }
+    val isDark = surface.luminance() < 0.5f
+    val primary = cover { primary }.harmonizeBy(appPrimary, harmony)
+    val onFill = cover { onPrimaryContainer }.harmonizeBy(appPrimary, harmony)
     return NowPlayingColors(
-        bar = if (isDark) primary.tonal(DARK_BAR_CHROMA, DARK_BAR_TONE)
-            else cover.surface.harmonizeBy(appPrimary, harmony),
-        fill = if (isDark) primary.tonal(DARK_BAR_FILL_CHROMA, DARK_BAR_FILL_TONE)
-            else cover.primaryContainer.harmonizeBy(appPrimary, harmony),
+        bar = if (isDark) primary.tonal(DARK_BAR)
+            else surface.harmonizeBy(appPrimary, harmony),
+        fill = if (isDark) primary.tonal(DARK_BAR_FILL)
+            else cover { primaryContainer }.harmonizeBy(appPrimary, harmony),
         onFill = onFill,
         onFillVariant = onFill.copy(alpha = ON_FILL_VARIANT_ALPHA),
     )
-}
-
-/** This colour leant towards [target] by [fraction]: unchanged at 0, harmonized at 1. */
-fun Color.harmonizeBy(target: Color, fraction: Float): Color = when {
-    fraction <= 0f -> this
-    fraction >= 1f -> harmonize(target)
-    else -> lerp(this, harmonize(target), fraction)
 }
 
 /**

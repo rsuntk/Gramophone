@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 The Gramophone authors
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -17,26 +17,25 @@
 
 package org.akanework.gramophone.ui.screens
 
-import androidx.compose.animation.core.animateDpAsState
 import android.content.SharedPreferences
 import android.net.Uri
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -50,26 +49,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.akanework.gramophone.ui.components.compose.LibraryIconButton
 import org.akanework.gramophone.ui.components.home.GLASS_BAR_HEIGHT
 import org.akanework.gramophone.ui.components.home.LibraryCover
-import org.akanework.gramophone.ui.components.home.LibraryIconButton
 import org.akanework.gramophone.ui.nav.AlbumKey
 import org.akanework.gramophone.ui.nav.ArtistKey
 import org.akanework.gramophone.ui.nav.DateKey
@@ -87,8 +84,6 @@ import uk.akane.libphonograph.reader.FlowReader
 
 /** Card height as a fraction of the screen height. */
 private const val CAROUSEL_CARD_HEIGHT_SHARE = 0.30f
-private val CAROUSEL_CARD_HEIGHT_MIN = 140.dp
-private val CAROUSEL_CARD_HEIGHT_MAX = 280.dp
 
 /** Card aspect ratio (width / height). */
 private const val CAROUSEL_CARD_ASPECT = 1.4f
@@ -105,10 +100,8 @@ private val CAROUSEL_ITEM_CORNER = 28.dp
 private val CAROUSEL_START_PADDING = 24.dp
 private val CAROUSEL_END_PADDING = 24.dp
 
-/** Gap between the status bar and the cards, and the scroll distance over which the toolbar
- *  blur fades in. */
+/** Gap between the status bar and the cards. */
 internal val CAROUSEL_TOP_GAP = 4.dp
-internal val CAROUSEL_FROST_SPAN = 24.dp
 
 /** Inset of the buttons from the focused card's corners, and their size. */
 private val CAROUSEL_BUTTON_INSET = 16.dp
@@ -118,24 +111,27 @@ private val CAROUSEL_BUTTON_SIZE = 48.dp
 internal val TOOLBAR_BUTTON_PADDING_START = 4.dp
 internal val TOOLBAR_BUTTON_PADDING_END = 8.dp
 
-/** Start padding of the toolbar title, leaving room for the docked back button. */
-internal val TOOLBAR_TITLE_PADDING = TOOLBAR_BUTTON_PADDING_START + CAROUSEL_BUTTON_SIZE + 4.dp
-
-/** Gap between two buttons at the card's corner. Docked in the toolbar they touch. */
-private val CAROUSEL_BUTTON_GAP = 8.dp
+/** Gap between the toolbar title and the buttons docked beside it. */
+private val TOOLBAR_TITLE_GAP = 8.dp
 
 /**
- * End padding of the toolbar title, leaving room for [count] buttons docked at the end, with the
- * same gap as [TOOLBAR_TITLE_PADDING] leaves before the title.
+ * Start padding of the toolbar title within the toolbar's own padding, leaving room for the
+ * docked back button.
+ */
+internal val TOOLBAR_TITLE_PADDING = CAROUSEL_BUTTON_SIZE + TOOLBAR_TITLE_GAP
+
+/**
+ * End padding of the toolbar title within the toolbar's own padding, leaving room for [count]
+ * buttons docked at the end.
  */
 internal fun toolbarTitlePaddingEnd(count: Int): Dp =
-    TOOLBAR_BUTTON_PADDING_START + CAROUSEL_BUTTON_SIZE * count + 4.dp
+    CAROUSEL_BUTTON_SIZE * count + TOOLBAR_TITLE_GAP
 
 /** Card height: a fraction of the screen height, clamped for very short or tall screens. */
 @Composable
 private fun carouselCardHeight(): Dp =
-    (LocalConfiguration.current.screenHeightDp.dp * CAROUSEL_CARD_HEIGHT_SHARE)
-        .coerceIn(CAROUSEL_CARD_HEIGHT_MIN, CAROUSEL_CARD_HEIGHT_MAX)
+    (LocalWindowInfo.current.containerSize.height.dp * CAROUSEL_CARD_HEIGHT_SHARE)
+        .coerceIn(140.dp, 280.dp)
 
 /**
  * Width of the focused card: its height times [CAROUSEL_CARD_ASPECT], capped so the collapsed
@@ -178,32 +174,30 @@ private fun CarouselButton(
         Modifier
             // Read in the layout and draw phases to avoid recomposing on every scroll frame.
             .offset {
-                // Follows the card, including overscroll. Only upward scrolling moves it towards
-                // the toolbar position.
+                // Follows the card. Only upward scrolling moves it towards the toolbar position.
                 val ridden = scrolled().coerceAtMost(travelPx)
                 IntOffset(
                     x = with(density) { lerp(restX(), dockX, fraction()).roundToPx() },
                     y = with(density) { (restY - ridden.toDp()).roundToPx() },
                 )
             }
-            .clip(CircleShape)
-            .drawBehind { drawCircle(color = surface.copy(alpha = 1f - fraction())) },
     ) {
         LibraryIconButton(
             icon = icon,
             iconSize = 24.dp,
             tint = MaterialTheme.colorScheme.onSurface,
             onClick = onClick,
+            container = { surface.copy(alpha = 1f - fraction()) },
         )
         content()
     }
 }
 
 /**
- * The back, edit and sort buttons. At rest they sit on the corners of the focused card and follow it
- * when overscrolled. As the card scrolls under the toolbar they move to the toolbar button
- * positions and their background fades out. [scrolled] is the card's scroll offset from rest in
- * px (negative when overscrolled) and [topInset] the status bar height. [atLastEntry] tells
+ * The back, edit and sort buttons. At rest they sit on the corners of the focused card. As the
+ * card scrolls under the toolbar they move to the toolbar button positions and their background
+ * fades out. [scrolled] is the card's scroll offset from rest in px and [topInset] the status bar
+ * height. [atLastEntry] tells
  * whether the carousel is on its last entry, where the focused card sits at the end of the row
  * instead of the start.
  */
@@ -248,7 +242,7 @@ internal fun CarouselButtons(
         )
         // The end buttons, counted from the end: sort, then edit before it.
         fun endRestX(slot: Int) = cardStart.value + cardWidth - CAROUSEL_BUTTON_INSET -
-                CAROUSEL_BUTTON_SIZE - (CAROUSEL_BUTTON_SIZE + CAROUSEL_BUTTON_GAP) * slot
+                CAROUSEL_BUTTON_SIZE - (CAROUSEL_BUTTON_SIZE + 8.dp) * slot
         fun endDockX(slot: Int) = windowWidth - insetEnd - TOOLBAR_BUTTON_PADDING_END -
                 CAROUSEL_BUTTON_SIZE * (slot + 1)
         var slot = 0
@@ -309,10 +303,15 @@ private fun <T : Any> CarouselCard(
 /**
  * The detail page carousel, listing all entries of the page's kind (e.g. all albums on an album
  * page). It is the first item of the scrolling content. The focused card is the shown entry, and
- * the screen observes [carouselState] to switch to the card it settles on.
+ * the screen observes [carouselState] to switch to the card it settles on. Tapping the focused
+ * card calls [onFocusedClick].
  */
 @Composable
-private fun <T : Any> SubCarousel(state: LibraryTabState<T>, carouselState: CarouselState) {
+private fun <T : Any> SubCarousel(
+    state: LibraryTabState<T>,
+    carouselState: CarouselState,
+    onFocusedClick: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     HorizontalMultiBrowseCarousel(
         state = carouselState,
@@ -336,9 +335,15 @@ private fun <T : Any> SubCarousel(state: LibraryTabState<T>, carouselState: Caro
             CarouselCard(
                 state = state,
                 item = item,
-                // Tapping only scrolls the card into focus. The page switches when the carousel
-                // settles.
-                onClick = { scope.launch { carouselState.animateScrollToItem(index) } },
+                // Tapping another card only scrolls it into focus. The page switches when the
+                // carousel settles.
+                onClick = {
+                    if (index == carouselState.currentItem && !carouselState.isScrollInProgress) {
+                        onFocusedClick()
+                    } else {
+                        scope.launch { carouselState.animateScrollToItem(index) }
+                    }
+                },
                 // maskClip rounds the visible part of the card, including collapsed ones.
                 modifier = Modifier.maskClip(RoundedCornerShape(CAROUSEL_ITEM_CORNER)),
             )
@@ -355,6 +360,9 @@ internal class SiblingEntries<T : Any>(
     private val keyOf: (T) -> LibrarySubKey,
 ) {
     val itemCount: Int get() = state.items.size
+
+    /** Whether the list has loaded. */
+    val loaded: Boolean get() = state.loaded
 
     /** Key of the entry at [index], or null before the list has loaded. */
     fun keyAt(index: Int): LibrarySubKey? = state.items.getOrNull(index)?.let(keyOf)
@@ -379,23 +387,49 @@ internal class SiblingEntries<T : Any>(
 
     /** The carousel for this list, driven by [carouselState]. */
     @Composable
-    fun Carousel(carouselState: CarouselState) = SubCarousel(state, carouselState)
+    fun Carousel(carouselState: CarouselState, onFocusedClick: () -> Unit) =
+        SubCarousel(state, carouselState, onFocusedClick)
 }
 
 /**
- * True when two keys refer to the same entry. The key classes are not data classes, so the same
- * page can be on the back stack twice. This compares their contents instead.
+ * A key as a list: its kind's tag, then the fields that name the entry, without the `uid` of the
+ * push. Saved as is by [LibrarySubKeySaver] and joined into [entryToken]. [keyFromFields] turns it
+ * back into a key.
  */
-private fun sameEntry(a: LibrarySubKey, b: LibrarySubKey): Boolean = entryToken(a) == entryToken(b)
+private fun keyFields(key: LibrarySubKey): List<Any?> = when (key) {
+    is AlbumKey -> listOf("album", key.id)
+    is GenreKey -> listOf("genre", key.id)
+    is DateKey -> listOf("date", key.id)
+    is PlaylistKey -> listOf("playlist", key.id, key.className)
+    is ArtistKey -> listOf("artist", key.id, key.albumArtist)
+}
+
+/** The key [keyFields] made [fields] of. */
+private fun keyFromFields(fields: List<Any?>): LibrarySubKey {
+    val id = fields[1] as Long?
+    return when (fields[0]) {
+        "album" -> AlbumKey(id)
+        "genre" -> GenreKey(id)
+        "date" -> DateKey(id)
+        "playlist" -> PlaylistKey(id, fields[2] as String?)
+        else -> ArtistKey(id, fields[2] as Boolean)
+    }
+}
 
 /** Unique string for an entry, used to compare keys and as a remember key. */
-internal fun entryToken(key: LibrarySubKey): String = when (key) {
-    is AlbumKey -> "album:${key.id}"
-    is GenreKey -> "genre:${key.id}"
-    is DateKey -> "date:${key.id}"
-    is PlaylistKey -> "playlist:${key.id}:${key.className}"
-    is ArtistKey -> "artist:${key.id}:${key.albumArtist}"
-}
+internal fun entryToken(key: LibrarySubKey): String = keyFields(key).joinToString(":")
+
+/**
+ * True when two keys refer to the same entry. Keys that are equal are also the same push of a
+ * page (see [org.akanework.gramophone.ui.nav.AppNavKey]); this compares only the entry.
+ */
+internal fun sameEntry(a: LibrarySubKey, b: LibrarySubKey): Boolean = entryToken(a) == entryToken(b)
+
+/** Saves a key as its kind and fields, so the entry a page shows survives recreation. */
+internal val LibrarySubKeySaver = listSaver<LibrarySubKey, Any?>(
+    save = { keyFields(it) },
+    restore = { keyFromFields(it) },
+)
 
 /**
  * Carousel list for the page opened by [key]: all entries of the key's kind, in the order of

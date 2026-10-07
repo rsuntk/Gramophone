@@ -1,5 +1,5 @@
 /*
- *     Copyright (C) 2025 Akane Foundation
+ *     Copyright (C) 2026 Akane Foundation
  *
  *     Gramophone is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ fun AudioSettingsScreen(
             NavigationPreferenceRow(
                 shape,
                 title = stringResource(R.string.settings_replaygain),
-                onClick = { onNavigate(ReplayGainSettingsKey()) },
+                onClick = { onNavigate(ReplayGainSettingsKey) },
             )
         })
 
