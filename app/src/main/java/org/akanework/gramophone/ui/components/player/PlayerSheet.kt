@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -65,6 +66,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
@@ -85,12 +87,14 @@ import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import coil3.request.error
 import coil3.size.Precision
 import kotlinx.coroutines.launch
 import org.akanework.gramophone.R
+import org.akanework.gramophone.logic.defaultPrefs
+import org.akanework.gramophone.logic.getBooleanStrict
 import org.akanework.gramophone.logic.showsPause
 import org.akanework.gramophone.logic.utils.AudioFormatDetector
+import org.akanework.gramophone.ui.MediaControllerViewModel
 import org.akanework.gramophone.ui.components.compose.rememberBooleanPreference
 import org.akanework.gramophone.ui.components.compose.rememberIntPreference
 import org.akanework.gramophone.ui.components.home.rememberDefaultCoverPainter
@@ -107,6 +111,8 @@ import org.akanework.gramophone.ui.components.player.PlayerUtilities.TAP_EXPAND_
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.WIDE_LANDSCAPE_MIN_WIDTH
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.absolute
 import org.akanework.gramophone.ui.components.player.PlayerUtilities.miniContentAlpha
+import org.akanework.gramophone.ui.fragments.compose.MqState
+import org.akanework.gramophone.ui.fragments.compose.rememberMqState
 import org.akanework.gramophone.ui.nav.NAV_TRANSITION_MS
 import org.akanework.gramophone.ui.nav.NavAxisEasing
 import org.akanework.gramophone.ui.theme.harmonizeBy
@@ -183,6 +189,7 @@ class FullPlayerActions(
 @Composable
 fun PlayerSheet(
     state: NowPlayingSheetState,
+    mediaController: MediaControllerViewModel,
     player: PlayerSheetPlayerState,
     insets: SheetInsets,
     /** Whether the current page is themed from a cover, where the bar isn't harmonized. */
@@ -192,8 +199,8 @@ fun PlayerSheet(
     actions: FullPlayerActions,
     dialogCallbacks: PlayerDialogCallbacks,
     modifier: Modifier = Modifier,
-    queueContent: @Composable (Modifier) -> Unit,
 ) {
+    val context = LocalContext.current
     val density = LocalDensity.current
     val cookieCover = rememberBooleanPreference("cookie_cover", false).value
     val expandedArtCorner = rememberIntPreference(
@@ -241,8 +248,9 @@ fun PlayerSheet(
         val isWideLandscape = maxWidth >= WIDE_LANDSCAPE_MIN_WIDTH.dp && maxWidth > maxHeight
         val pageCorner = deviceScreenCornerRadius()
         val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+        val mqEnabled = remember { context.defaultPrefs.getBooleanStrict("mq_preview", false) }
         val geometry = remember(
-            rootW, rootH, insets, isWideLandscape, isRtl, pageCorner, density, expandedArtCorner,
+            rootW, rootH, insets, isWideLandscape, isRtl, pageCorner, density, expandedArtCorner, mqEnabled,
         ) {
             SheetGeometry(
                 rootWidth = rootW,
@@ -256,6 +264,7 @@ fun PlayerSheet(
                 pageCorner = pageCorner,
                 expandedArtCorner = expandedArtCorner,
                 density = density,
+                mqEnabled = mqEnabled
             )
         }
         // The sheet at the current progress. Only read in the layout and draw phases, so a moving
@@ -309,8 +318,9 @@ fun PlayerSheet(
                 fadesOverQueue = !geometry.isWideLandscape,
                 onClick = actions.openSongDetails,
             )
-            QueueDrawer(
-                state, frame, geometry, player, actions, coverScheme, lyrics, queue, queueContent,
+
+            QueueSheet(
+                state, mediaController, frame, geometry, player, actions, coverScheme, lyrics, queue,
             )
         }
     }

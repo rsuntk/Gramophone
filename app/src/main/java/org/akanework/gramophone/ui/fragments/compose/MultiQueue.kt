@@ -3,20 +3,12 @@ package org.akanework.gramophone.ui.fragments.compose
 import android.content.Context
 import android.os.Bundle
 import android.os.SystemClock
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,26 +19,17 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.SkipNext
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,19 +43,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorProducer
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -83,9 +60,6 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.common.Player.REPEAT_MODE_ALL
-import androidx.media3.common.Player.REPEAT_MODE_OFF
-import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.MediaController
@@ -111,17 +85,13 @@ import org.akanework.gramophone.logic.getInactiveQueues
 import org.akanework.gramophone.logic.getQueueForUi
 import org.akanework.gramophone.logic.loadQueue
 import org.akanework.gramophone.logic.pinQueue
-import org.akanework.gramophone.logic.playOrPause
 import org.akanework.gramophone.logic.renameQueue
 import org.akanework.gramophone.logic.replaceAllSupport
-import org.akanework.gramophone.logic.showsPause
-import org.akanework.gramophone.logic.supportsWideScreen
 import org.akanework.gramophone.logic.unpinQueue
 import org.akanework.gramophone.logic.utils.CalculationUtils.convertDurationToTimeStamp
 import org.akanework.gramophone.logic.utils.Flags
 import org.akanework.gramophone.ui.MediaControllerViewModel
 import org.akanework.gramophone.ui.components.compose.QueueDropdownMenu
-import org.akanework.gramophone.ui.components.compose.TintedIcon
 import java.util.LinkedList
 
 @Composable
@@ -131,11 +101,12 @@ fun MqListItem(
     index: Int,
     mq: MultiQueueObject,
     modifier: Modifier = Modifier,
-    horizontalPadding: Dp = 16.dp,
-    verticalPadding: Dp = 4.dp,
+    horizontalPadding: Dp = 0.dp,
+    verticalPadding: Dp = 0.dp,
     isActiveQueue: Boolean = false,
     isHighlightedQueue: Boolean = false,
     isEditAllowed: Boolean = false,
+    mqEnabled: Boolean = true,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
 ) {
@@ -156,7 +127,7 @@ fun MqListItem(
                 }
             )
             .combinedClickable(
-//                    enabled = !inSelectMode,
+                enabled = mqEnabled,
                 onClick = onClick,
                 onLongClick = onLongClick
             )
@@ -165,6 +136,7 @@ fun MqListItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
+                .heightIn(min = 56.dp)
                 .fillMaxWidth()
                 .padding(horizontal = horizontalPadding, vertical = verticalPadding)
         ) {
@@ -173,7 +145,7 @@ fun MqListItem(
                 modifier = Modifier
                     .weight(1f, false)
             ) {
-                if (isEditAllowed) {
+                if (mqEnabled && isEditAllowed) {
                     if (isPinned) {
                         IconButton(
                             onClick = {
@@ -182,7 +154,8 @@ fun MqListItem(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_keep_off),
-                                contentDescription = null
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     } else {
@@ -193,9 +166,26 @@ fun MqListItem(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_close),
-                                contentDescription = null
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
+                    }
+                }
+                if (!mqEnabled) {
+                    Spacer(Modifier.width(8.dp))
+                }
+                if (mqEnabled && isActiveQueue && !isEditAllowed) {
+                    IconButton(
+                        onClick = {
+                            mqState.togglePin(pinId)
+                        },
+                    ) {
+                        Icon(
+                            painter = painterResource(if (isPinned) R.drawable.ic_keep_off else R.drawable.ic_keep),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
                 Column(
@@ -214,7 +204,7 @@ fun MqListItem(
                     // title line
                     Row(
                         modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 0.dp)
+                            .padding(horizontal = 4.dp)
                     ) {
                         Text(
                             text = titleText,
@@ -242,14 +232,14 @@ fun MqListItem(
                                 .padding(horizontal = 16.dp)
                                 .fillMaxWidth()
                         ) {
-                            if (!isPinned) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (!isPinned && !isActiveQueue) {
                                     val remainingTimeMs = (expiry!! - System.currentTimeMillis())
                                     Icon(
                                         painter = painterResource(
-                                            if (!isActiveQueue && remainingTimeMs < 1800000) {
+                                            if (remainingTimeMs < 1800000) {
                                                 R.drawable.ic_warning
                                             } else {
                                                 R.drawable.ic_keep
@@ -263,11 +253,7 @@ fun MqListItem(
                                             }),
                                     )
                                     Text(
-                                        text = if (isActiveQueue) {
-                                            "∞"
-                                        } else {
-                                            convertDurationToTimeStamp(remainingTimeMs)
-                                        },
+                                        text = convertDurationToTimeStamp(remainingTimeMs),
                                         color = MaterialTheme.colorScheme.onSurface.copy(0.7f),
                                         fontSize = 10.sp,
                                         maxLines = 1,
@@ -296,11 +282,12 @@ fun MqListItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (isEditAllowed || !isActiveQueue) {
+                if (isEditAllowed || !isActiveQueue || mqState.expanded) {
                     QueueDropdownMenu(
                         mqState = mqState,
                         mq = mq,
                         isPinned = isPinned,
+                        isActiveQueue = isActiveQueue,
                     )
                 }
 
@@ -315,53 +302,6 @@ fun MqListItem(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun MqContent(
-    mqState: MqState,
-    modifier: Modifier = Modifier,
-    mqEnabled: Boolean,
-    landscape: Boolean,
-    onDismiss: (() -> Unit)? = null,
-) {
-    BackHandler(mqState.expanded || mqState.isDetached()) {
-        if (mqState.isDetached()) {
-            mqState.resetHead()
-        } else if (mqState.expanded) {
-            mqState.toggleExpand()
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth(),
-    ) {
-        QueueInfo(
-            mqState = mqState,
-            mqEnabled = mqEnabled,
-            landscape = landscape,
-            onDismiss = onDismiss,
-        )
-
-        val lazyQueuesListState = rememberLazyListState()
-        AnimatedVisibility(
-            visible = mqState.expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            MqList(
-                mqState = mqState,
-                lazyQueuesListState = lazyQueuesListState,
-                modifier = Modifier
-                    .heightIn(Dp.Unspecified, if (!landscape) 300.dp else Dp.Unspecified)
-            )
-        }
-
-        ActionBar(
-            mqState = mqState,
-        )
     }
 }
 
@@ -386,7 +326,6 @@ fun QueueInfo(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .padding(16.dp, 4.dp)
             .clickable(onClick = {
                 onDismiss?.invoke()
             })
@@ -418,6 +357,7 @@ fun QueueInfo(
                     isActiveQueue = true,
                     isEditAllowed = mqState.isEditAllowed,
                     isHighlightedQueue = mqState.expanded && !mqState.isDetached(),
+                    mqEnabled = mqEnabled,
                     onClick = {
                         if (mqState.isDetached()) {
                             mqState.resetHead()
@@ -432,15 +372,20 @@ fun QueueInfo(
                 )
             }
             IconButton(
-                enabled = mqEnabled && !mqState.inactiveQueues.isEmpty() && !landscape,
+                enabled = mqState.isEditAllowed || (mqEnabled && !mqState.inactiveQueues.isEmpty() && !landscape),
                 onClick = {
-                    mqState.toggleExpand()
+                    if (mqState.isEditAllowed) {
+                        mqState.isEditAllowed = false
+                    } else {
+                        mqState.toggleExpand()
+                    }
                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                 },
-                modifier = Modifier.padding(vertical = 6.dp)
             ) {
                 Icon(
-                    imageVector = if (mqState.expanded) {
+                    imageVector = if (mqState.isEditAllowed) {
+                        Icons.AutoMirrored.Outlined.ArrowBack
+                    } else if (mqState.expanded) {
                         Icons.Outlined.ExpandLess
                     } else {
                         Icons.Outlined.ExpandMore
@@ -482,10 +427,10 @@ fun MqList(
         itemsIndexed(
             items = mqState.inactiveQueues,
             key = { _, item -> item.id },
-        ) { index, mq ->
+        ) { _, mq ->
             MqListItem(
                 mqState = mqState,
-                index = index,
+                index = mq.index,
                 mq = mq,
                 isActiveQueue = false,
                 isHighlightedQueue = mq == mqState.detachedQueue,
@@ -493,7 +438,6 @@ fun MqList(
                 onClick = {
                     if (mqState.detachedQueue != mq) {
                         mqState.detach(mq)
-                        // TODO: scroll to when click
                     }
                 },
                 onLongClick = {
@@ -504,141 +448,6 @@ fun MqList(
             )
         }
     }
-}
-
-@Composable
-fun ActionBar(
-    mqState: MqState,
-    modifier: Modifier = Modifier
-) {
-    val showPause by mqState.showPause.collectAsState()
-    val repeatMode by mqState.repeatMode.collectAsState()
-    val shuffleModeEnabled by mqState.shuffleModeEnabled.collectAsState()
-
-    BackHandler(mqState.isEditAllowed) {
-        mqState.isEditAllowed = false
-    }
-
-    FlowRow(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.Center,
-        itemVerticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-    ) {
-        // left options
-        Row(
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-        ) {
-            IconButton(
-                onClick = {
-                    mqState.toggleRepeatMode()
-                },
-                enabled = !mqState.isDetached(),
-            ) {
-                Icon(
-                    painter = painterResource(
-                        when (repeatMode) {
-                            REPEAT_MODE_OFF, REPEAT_MODE_ALL -> R.drawable.ic_repeat
-                            else -> R.drawable.ic_repeat_one
-                        }
-                    ),
-                    contentDescription = null,
-                    tint = LocalContentColor.current
-                        .copy(if (repeatMode == REPEAT_MODE_OFF) 0.5f else 1f)
-                )
-            }
-            IconButton(
-                onClick = {
-                    mqState.toggleShuffleMode()
-                },
-                enabled = !mqState.isDetached(),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_shuffle),
-                    contentDescription = null,
-                    tint = LocalContentColor.current.copy(if (shuffleModeEnabled) 1f else 0.5f)
-                )
-            }
-        }
-
-        // center options
-        Row(
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(horizontal = 8.dp)
-        ) {
-            IconButton(
-                onClick = {
-                    mqState.seekPrev()
-                },
-                enabled = !mqState.isDetached(),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_skip_previous),
-                    contentDescription = null,
-                )
-            }
-            IconButton(
-                onClick = {
-                    mqState.togglePlayPause()
-                },
-                enabled = !mqState.isDetached(),
-            ) {
-                Icon(
-                    painter = painterResource(
-                        if (showPause) R.drawable.ic_pause_filled else R.drawable.ic_play_arrow
-                    ),
-                    contentDescription = null,
-                )
-            }
-            IconButton(
-                onClick = {
-                    mqState.seekNext()
-                },
-                enabled = !mqState.isDetached(),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_skip_next),
-                    contentDescription = null,
-                )
-            }
-        }
-
-        // right options
-        Row(
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-        ) {
-            val mq = mqState.activeQueue?.second
-            if (mq != null) {
-                QueueDropdownMenu(
-                    mqState = mqState,
-                    mq = mq,
-                    isPinned = mq.expiry == null,
-                    enabled = !mqState.isDetached() && !mqState.isEditAllowed,
-                )
-            }
-            AnimatedVisibility(mqState.isDetached()) {
-                IconButton(
-                    onClick = {
-                        mqState.loadDetached()
-                    },
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_play_arrow),
-                        contentDescription = null,
-                    )
-                }
-            }
-        }
-    }
-
 }
 
 
@@ -652,13 +461,10 @@ class MqState(
     private val controller: MediaControllerViewModel,
     /** The controller connected as the queue's made, the first [instance]. */
     connection: MediaBrowser,
+    expanded: Boolean = false,
     private val onDismissRequest: () -> Unit,
 ) : LifecycleOwner {
-    /**
-     * The connected controller, see [rememberMqState], which everything else goes through. The
-     * activity releases it when it stops: until it starts again and the next one takes its place,
-     * the queue keeps what it shows, and a controller no longer connected ignores commands.
-     */
+
     private var instance: MediaBrowser = connection
 
     private val registry = LifecycleRegistry(this)
@@ -668,8 +474,6 @@ class MqState(
 
     // -1 for none. Goes through the whole queue, worked out once it's loaded, see syncWithPlayer
     var currentMediaItemIndex: Int by mutableStateOf(-1)
-        private set
-    var locked by mutableStateOf(false)
         private set
     var listVersion by mutableIntStateOf(0)
         private set
@@ -741,8 +545,6 @@ class MqState(
         }
     }
 
-    val showPause = MutableStateFlow(instance.showsPause)
-
     // shuffle and repeat modes do not need to be manually set for queue loads, they will be set
     // automatically
     val shuffleModeEnabled = MutableStateFlow(instance.shuffleModeEnabled)
@@ -753,7 +555,7 @@ class MqState(
     // Goes through the whole queue, worked out once it's loaded, see syncWithPlayer
     val durationMs = MutableStateFlow(0L)
 
-    var expanded by mutableStateOf(false)
+    var expanded by mutableStateOf(expanded)
         private set
 
     private val detachedQueueState = mutableStateOf<MultiQueueObject?>(null)
@@ -803,13 +605,6 @@ class MqState(
 
 
     val playerListener = object : Player.Listener {
-        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            showPause.value = instance.showsPause
-        }
-
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            showPause.value = instance.showsPause
-        }
 
         override fun onRepeatModeChanged(repeatMode: @Player.RepeatMode Int) {
             this@MqState.repeatMode.value = repeatMode
@@ -1054,6 +849,10 @@ class MqState(
         }
     }
 
+    fun loadQueue(queueId: Long, startIndex: Int = C.INDEX_UNSET) {
+        instance.loadQueue(queueId, startIndex)
+    }
+
     fun loadDetached(startIndex: Int = C.INDEX_UNSET) {
         if (detachedQueue == null) return
         instance.loadQueue(detachedQueue!!.id, startIndex)
@@ -1065,25 +864,6 @@ class MqState(
         coroutineScope.launch {
             init()
         }
-    }
-
-
-    fun togglePlayPause() = instance.playOrPause()
-    fun seekPrev() = instance.seekToPrevious()
-    fun seekNext() = instance.seekToNext()
-
-    fun toggleRepeatMode() {
-        instance.repeatMode = when (instance.repeatMode) {
-            REPEAT_MODE_OFF -> REPEAT_MODE_ALL
-            REPEAT_MODE_ALL -> REPEAT_MODE_ONE
-            REPEAT_MODE_ONE -> REPEAT_MODE_OFF
-            else -> REPEAT_MODE_OFF
-        }
-    }
-
-    fun toggleShuffleMode() {
-        // The songs are shown in the new order as the player tells, see playerListener
-        instance.shuffleModeEnabled = !instance.shuffleModeEnabled
     }
 
     fun playNext(queueId: Long) {
@@ -1112,8 +892,8 @@ class MqState(
         }
     }
 
-    fun addToPlaylist(queueId: Int) {
-//        activity.addToPlaylistDialog(item)
+    fun addToPlaylist(queueId: Long) = instance.getQueueForUi(queueId)?.let { mq ->
+        mq.first.zip(mq.second.queue).sortedBy { it.first }.map { it.second }
     }
 
     fun renameQueue(queueId: Long, title: String, dryRun: Boolean): Boolean {
@@ -1297,7 +1077,6 @@ class MqState(
 
     /** The player's state, as the queue head shows it, and the song playing. */
     private fun syncWithPlayer() {
-        showPause.value = instance.showsPause
         if (isDetached()) return
         shuffleModeEnabled.value = instance.shuffleModeEnabled
         repeatMode.value = instance.repeatMode
@@ -1475,13 +1254,14 @@ class MqState(
 fun rememberMqState(
     context: Context,
     coroutineScope: CoroutineScope,
-    controller: MediaControllerViewModel,
+    mediaController: MediaControllerViewModel,
+    expanded: Boolean,
     onDismiss: (() -> Unit) = {}
 ): MqState? {
-    val connection by controller.connection.collectAsState()
+    val connection by mediaController.connection.collectAsState()
     val holder = remember { MqStateHolder() }
     return holder.state ?: connection?.let { instance ->
-        MqState(context, coroutineScope, controller, instance, onDismiss).also { holder.state = it }
+        MqState(context, coroutineScope, mediaController, instance, expanded,onDismiss).also { holder.state = it }
     } // TODO: rememberSaveable
 }
 

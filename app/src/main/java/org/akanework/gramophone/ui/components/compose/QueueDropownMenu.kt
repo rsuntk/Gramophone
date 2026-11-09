@@ -2,7 +2,6 @@ package org.akanework.gramophone.ui.components.compose
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,14 +20,17 @@ import kotlinx.coroutines.flow.debounce
 import org.akanework.gramophone.BuildConfig
 import org.akanework.gramophone.R
 import org.akanework.gramophone.logic.MultiQueueObject
+import org.akanework.gramophone.ui.actions.PlaylistDialogs
+import org.akanework.gramophone.ui.actions.rememberAppActionEnv
 import org.akanework.gramophone.ui.fragments.compose.MqState
 
 
-@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
+@OptIn(FlowPreview::class)
 @Composable
 fun QueueDropdownMenu(
     mqState: MqState,
     mq: MultiQueueObject,
+    isActiveQueue: Boolean,
     isPinned: Boolean,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
@@ -93,31 +95,48 @@ fun QueueDropdownMenu(
             }
         )
     }
+    val env = rememberAppActionEnv()
 
-    ActionDropdown(
-        enabled = enabled,
-        actions = listOf(
+    val actions = ArrayList<DropdownItem>()
+    if (isActiveQueue) {
+        actions.add(
             DropdownItem(
-                title = stringResource(R.string.add_to_queue),
+                title = stringResource(R.string.play),
                 leadingIcon = null,
                 action = {
-                    mqState.addToQueue(id)
+                    mqState.loadQueue(id, mq.startIndex)
                 },
-            ),
+            )
+        )
+        actions.add(
             DropdownItem(
                 title = stringResource(R.string.play_next),
                 leadingIcon = null,
                 action = {
                     mqState.playNext(if (mq == mqState.activeQueue?.second) -1 else id)
                 },
+            )
+        )
+    }
+    actions.addAll(
+        listOf(
+            DropdownItem(
+                title = stringResource(R.string.add_to_queue),
+                leadingIcon = null,
+                action = {
+                    mqState.addToQueue(if (mq == mqState.activeQueue?.second) -1 else id)
+                },
             ),
-//            DropdownItem(
-//                title = stringResource(R.string.add_to_playlist),
-//                leadingIcon = null,
-//                action = {
-//                    mqState.addToPlaylist(index)
-//                },
-//            ),
+            DropdownItem(
+                title = stringResource(R.string.add_to_playlist),
+                leadingIcon = null,
+                action = {
+                    mqState.addToPlaylist(if (mq == mqState.activeQueue?.second) -1 else id)
+                        ?.let { items ->
+                            PlaylistDialogs.addToPlaylist(env, items)
+                        }
+                },
+            ),
             DropdownItem(
                 title = stringResource(R.string.rename),
                 leadingIcon = null,
@@ -127,11 +146,11 @@ fun QueueDropdownMenu(
             ),
             DropdownItem(
                 title = stringResource(
-                    if (isPinned) R.string.mq_pin_queue else R.string.mq_unpin_queue
+                    if (isPinned) R.string.mq_unpin_queue else R.string.mq_pin_queue
                 ),
                 leadingIcon = null,
                 action = {
-                    mqState.togglePin()
+                    mqState.togglePin(id)
                 },
             ),
             DropdownItem(
@@ -141,15 +160,24 @@ fun QueueDropdownMenu(
                     mqState.isEditAllowed = !mqState.isEditAllowed
                 },
             ),
-        ) + if (BuildConfig.DEBUG) listOf(
+        )
+    )
+    if (BuildConfig.DEBUG) {
+        actions.add(
             DropdownItem(
                 title = "DEBUG: Age 2hrs",
                 leadingIcon = null,
                 action = {
                     mqState.age()
                 },
-            ),
-        ) else emptyList(),
+            )
+        )
+    }
+
+
+    ActionDropdown(
+        enabled = enabled,
+        actions = actions,
         modifier = modifier
     )
 }

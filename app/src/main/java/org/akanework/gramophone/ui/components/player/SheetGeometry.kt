@@ -89,6 +89,7 @@ class SheetGeometry(
     private val pageCorner: Dp,
     private val expandedArtCorner: Dp,
     density: Density,
+    val mqEnabled: Boolean,
 ) {
     private val miniBarMargin = density.miniBarMargin(bottomInset)
     val collapsedHeight = with(density) { MINI_HEIGHT.toPx() }
@@ -161,15 +162,25 @@ class SheetGeometry(
         }
         // Across the screen, or the controls' column between the landscape cover and the top
         // buttons
-        val queueLeft = when {
+        val queueRowLeft = when {
             !isWideLandscape -> 0f
             isRtl -> leftInset + TOP_BUTTON_SIZE.px()
             else -> expandedArtLeft + expandedArtSize
         }
-        val queueRight = when {
+        // in landscape mode, queue takes up the whole width in landscape when mq is enabled, but
+        // only the right pane when the setting is disabled
+        val queueLeft = when {
+            mqEnabled -> 0f
+            else -> queueRowLeft
+        }
+        val queueRowRight = when {
             !isWideLandscape -> rootWidth
             isRtl -> expandedArtLeft
             else -> rootWidth - rightInset - TOP_BUTTON_SIZE.px()
+        }
+        val queueRight = when {
+            mqEnabled -> rootWidth
+            else -> queueRowRight
         }
         val rowHeight = EXPANDED_ACTION_BAR.px()
         val rowTop = rootHeight - bottomInset - rowHeight
@@ -177,7 +188,7 @@ class SheetGeometry(
         val previewBottom =
             if (isWideLandscape) statusTop else statusTop + QUEUE_PREVIEW_HEIGHT.px()
         queueTravel = (rowTop - previewBottom).coerceAtLeast(1f)
-        queueRowBounds = Rect(queueLeft, rowTop, queueRight, rowTop + rowHeight)
+        queueRowBounds = Rect(queueRowLeft, rowTop, queueRowRight, rowTop + rowHeight)
         queuePanelBounds = Rect(queueLeft, rowTop, queueRight, rowTop + rootHeight - previewBottom)
         queuePreviewBounds = Rect(queueLeft, 0f, queueRight, previewBottom)
     }

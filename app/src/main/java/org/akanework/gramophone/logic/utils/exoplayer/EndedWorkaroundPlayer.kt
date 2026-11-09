@@ -333,7 +333,7 @@ class EndedWorkaroundPlayer(
         if (nextTitle == currentTitle && (currentIsOriginal && nextIsOriginal)) return // active queue update, not for queueboard
         if (currentQueueId == null && !exoPlayer.currentTimeline.isEmpty)
             throw IllegalStateException("have media items but current title is null, logic bug")
-        else if (currentQueueId != null && Flags.MQ_PREVIEW) {
+        else if (currentQueueId != null) {
             queueBoard.addQueue(
                 currentQueueId!!,
                 currentTitle!!,
@@ -450,7 +450,7 @@ class EndedWorkaroundPlayer(
     fun getActiveQueue(): MultiQueueObject {
         return MultiQueueObject(
             id = currentQueueId?: -1, // TODO: fix crash but should return nullable MultiQueueObject
-            index = 0,
+            index = -1,
             title = currentTitle ?: context.getString(R.string.unknown_playlist),
             expiry = if (currentIsPinned) null else 0L,
             queue = ArrayList<MediaItem>(exoPlayer.mediaItemCount).apply {
